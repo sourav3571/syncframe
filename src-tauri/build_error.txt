@@ -1,0 +1,76 @@
+cargo :     Checking tauri-appsyncframe v0.1.0 
+(D:\SyncFrame(Lab based project)\src-tauri)
+At line:1 char:71
++ ... FILE\.cargo\bin;" + $env:PATH; cd src-tauri; 
+cargo check 2>&1 | Out-F ...
++                                                  
+~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (    Chec 
+   king ta...ect)\src-tauri):String) [], RemoteExcep  
+  tion
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+warning: unused import: `std::process::Command`
+ --> src\render.rs:2:5
+  |
+2 | use std::process::Command;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of 
+`#[warn(unused)]`) on by default
+
+warning: unused variable: `paths`
+  --> src\audio_sync.rs:10:31
+   |
+10 | pub async fn auto_align_clips(paths: 
+Vec<String>) -> Result<SyncResult, String> {
+   |                               ^^^^^ help: if 
+this is intentional, prefix it with an underscore: 
+`_paths`
+   |
+   = note: `#[warn(unused_variables)]` (part of 
+`#[warn(unused)]`) on by default
+
+warning: unused variable: `output_path`
+  --> src\render.rs:12:43
+   |
+12 | pub async fn start_render(app: AppHandle, 
+output_path: String, encoder: String) -> Result<(), 
+String> {
+   |                                           
+^^^^^^^^^^^ help: if this is intentional, prefix it 
+with an underscore: `_output_path`
+
+warning: unused variable: `encoder`
+  --> src\render.rs:12:64
+   |
+12 | pub async fn start_render(app: AppHandle, 
+output_path: String, encoder: String) -> Result<(), 
+String> {
+   |                                                  
+              ^^^^^^^ help: if this is intentional, 
+prefix it with an underscore: `_encoder`
+
+warning: unused variable: `input`
+  --> src\render.rs:30:29
+   |
+30 | pub async fn generate_proxy(input: String, 
+output: String) -> Result<(), String> {
+   |                             ^^^^^ help: if this 
+is intentional, prefix it with an underscore: `_input`
+
+warning: unused variable: `output`
+  --> src\render.rs:30:44
+   |
+30 | pub async fn generate_proxy(input: String, 
+output: String) -> Result<(), String> {
+   |                                            
+^^^^^^ help: if this is intentional, prefix it with 
+an underscore: `_output`
+
+warning: `tauri-appsyncframe` (bin 
+"tauri-appsyncframe") generated 6 warnings (run 
+`cargo fix --bin "tauri-appsyncframe" -p 
+tauri-appsyncframe` to apply 6 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] 
+target(s) in 1.86s
