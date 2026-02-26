@@ -15,57 +15,68 @@ export const MediaLibrary = () => {
                 multiple: true,
                 filters: [{
                     name: 'Media',
-                    extensions: ['mp4', 'mov', 'avi', 'mkv', 'mp3', 'wav', 'aac']
+                    extensions: ['mp4', 'mov', 'avi', 'mkv', 'mp3', 'wav', 'aac', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'svg']
                 }]
             });
+
+            console.log("Dialog selection result:", selected);
 
             if (selected) {
                 const paths = Array.isArray(selected) ? selected : [selected];
 
                 for (const path of paths) {
-                    // Extract metadata from backend
-                    const metadata = await invoke<{ duration: number, format: string }>('get_media_metadata', { path });
-                    const name = path.split(/[\\/]/).pop() || 'Untitled';
+                    console.log("Importing path:", path);
+                    try {
+                        const metadata = await invoke<{ duration: number, format: string }>('get_media_metadata', { path });
+                        console.log("Metadata received:", metadata);
 
-                    const newId = Math.random().toString(36).substr(2, 9);
-                    const dur = metadata.duration || 10;
-                    const startPos = Math.max(0, currentTime - dur / 2);
+                        const name = path.split(/[\\/]/).pop() || 'Untitled';
+                        const newId = Math.random().toString(36).substr(2, 9);
+                        const dur = metadata.duration || 10;
+                        const startPos = Math.max(0, currentTime - dur / 2);
 
-                    const isAudio = metadata.format === 'audio' || path.endsWith('.mp3') || path.endsWith('.wav') || path.endsWith('.aac');
+                        const isAudio = metadata.format === 'audio';
 
-                    addClip({
-                        id: newId,
-                        name,
-                        start: startPos,
-                        duration: dur,
-                        trackId: isAudio ? 2 : 1,
-                        source: path,
-                        properties: {
-                            opacity: 100,
-                            scale: 100,
-                            rotation: 0,
-                            filters: {
-                                blur: 0,
-                                brightness: 100,
-                                contrast: 100,
-                                sepia: false,
-                                grayscale: false,
+                        addClip({
+                            id: newId,
+                            name,
+                            start: startPos,
+                            duration: dur,
+                            trackId: isAudio ? 2 : 1,
+                            source: path,
+                            format: metadata.format as 'video' | 'audio' | 'image',
+                            properties: {
+                                opacity: 100,
+                                scale: 100,
+                                rotation: 0,
+                                filters: {
+                                    blur: 0,
+                                    brightness: 100,
+                                    contrast: 100,
+                                    sepia: false,
+                                    grayscale: false,
+                                }
                             }
-                        }
-                    });
+                        });
 
-                    // focus the timeline on the new clip
-                    setSelectedClipId(newId);
-                    setCurrentTime(startPos + dur / 2);
+                        setSelectedClipId(newId);
+                        setCurrentTime(startPos + dur / 2);
+                        console.log("Clip added to timeline:", newId);
+                    } catch (invokeErr) {
+                        console.error("Backend metadata retrieval failed for:", path, invokeErr);
+                        alert(`Failed to process ${path}. Check console for details.`);
+                    }
                 }
+            } else {
+                console.log("No files selected in dialog.");
             }
         } catch (err) {
-            console.error("Failed to import media:", err);
+            console.error("Failed to open import dialog:", err);
+            alert("Could not open file dialog. Check permissions.");
         }
     };
 
     const handleAddAsset = (name: string) => {
-        // Legacy mock function - kept for demo assets
         const id = Math.random().toString(36).substr(2, 9);
         const dur = 5 + Math.random() * 10;
         const start = Math.max(0, currentTime - dur / 2);
@@ -103,7 +114,6 @@ export const MediaLibrary = () => {
 
     return (
         <div className="flex flex-col h-full bg-background/80 backdrop-blur-3xl border-r border-border z-20">
-            {/* Sidebar Navigation */}
             <div className="flex p-2 gap-1 bg-surface m-3 rounded-2xl border border-border">
                 {tabs.map((tab) => (
                     <button
@@ -121,7 +131,6 @@ export const MediaLibrary = () => {
                 ))}
             </div>
 
-            {/* Content Area */}
             <div className="flex-1 overflow-hidden flex flex-col p-4">
                 <div className="relative mb-6">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-textDim" size={14} />

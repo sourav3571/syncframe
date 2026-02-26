@@ -11,12 +11,8 @@ pub struct MediaMetadata {
 
 #[command]
 pub async fn get_media_metadata(path: String) -> Result<MediaMetadata, String> {
-    // Basic implementation using ffprobe (if available) or fallback to file size/dummy
-    // In a real app, we'd use 'ffprobe' or a crate. For now, let's try to run ffprobe.
-    // If ffprobe is missing, we return a safe default so the app doesn't crash.
+    println!("Backend: Metadata request for: {}", path);
     
-    // Check for local ffprobe in src-tauri/bin (or adjacent to exe in release)
-    // We check multiple possible locations because CWD can vary (root vs src-tauri)
     let possible_paths = vec![
         "src-tauri/bin/ffprobe.exe",
         "bin/ffprobe.exe",
@@ -43,21 +39,22 @@ pub async fn get_media_metadata(path: String) -> Result<MediaMetadata, String> {
             let duration = duration_str.trim().parse::<f64>().unwrap_or(0.0);
             
             let is_audio = path.ends_with(".mp3") || path.ends_with(".wav") || path.ends_with(".aac");
+            let is_image = path.ends_with(".png") || path.ends_with(".jpg") || path.ends_with(".jpeg") || path.ends_with(".webp") || path.ends_with(".gif") || path.ends_with(".svg");
 
             Ok(MediaMetadata {
                 duration,
-                format: if is_audio { "audio" } else { "video" }.to_string(), 
-                resolution: if is_audio { "N/A" } else { "1920x1080" }.to_string(), // Would need another probe call
+                format: if is_image { "image" } else if is_audio { "audio" } else { "video" }.to_string(), 
+                resolution: if is_audio { "N/A" } else { "1920x1080" }.to_string(),
             })
         },
         _ => {
-            // Fallback if FFmpeg is not installed
             println!("FFmpeg not found or failed. Returning default metadata.");
             let is_audio = path.ends_with(".mp3") || path.ends_with(".wav") || path.ends_with(".aac");
+            let is_image = path.ends_with(".png") || path.ends_with(".jpg") || path.ends_with(".jpeg") || path.ends_with(".webp") || path.ends_with(".gif") || path.ends_with(".svg");
             
             Ok(MediaMetadata {
-                duration: 10.0, // Default 10s
-                format: if is_audio { "audio" } else { "video" }.to_string(),
+                duration: if is_image { 5.0 } else { 10.0 },
+                format: if is_image { "image" } else if is_audio { "audio" } else { "video" }.to_string(),
                 resolution: "unknown".to_string(),
             })
         }

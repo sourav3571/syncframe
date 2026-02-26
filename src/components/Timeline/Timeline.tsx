@@ -30,15 +30,11 @@ export const Timeline = () => {
         e.stopPropagation();
         setSelectedClipId(clip.id);
 
-        // UX Improvement: Move playhead to clip start if we click it
-        // This ensures the preview shows the clip we just selected
-        // If playhead is outside the clip, jump to start.
         if (currentTime < clip.start || currentTime > clip.start + clip.duration) {
             setCurrentTime(clip.start);
         }
     };
 
-    // center viewport on currentTime whenever it changes
     React.useEffect(() => {
         const el = timelineRef.current;
         if (!el) return;
@@ -48,7 +44,6 @@ export const Timeline = () => {
 
     return (
         <div className="flex flex-col h-full bg-background border-t border-border select-none">
-            {/* Timeline Controls */}
             <div className="h-12 border-b border-border flex items-center justify-between px-6 bg-surface/40 backdrop-blur-xl">
                 <div className="flex items-center gap-3">
                     <div className="flex bg-black/40 rounded-lg p-1 border border-white/5">
@@ -92,9 +87,7 @@ export const Timeline = () => {
                 </div>
             </div>
 
-            {/* Tracks Area */}
             <div className="flex-1 flex overflow-hidden">
-                {/* Track Headers */}
                 <div className="w-[110px] bg-surface/60 border-r border-border flex flex-col pt-10">
                     {tracks.map((track) => (
                         <div key={track.id} className="h-24 px-3 flex flex-col justify-center gap-2 group border-b border-border bg-background/50 hover:bg-background transition-colors relative">
@@ -108,13 +101,11 @@ export const Timeline = () => {
                     ))}
                 </div>
 
-                {/* Timeline Viewport */}
                 <div
                     ref={timelineRef}
                     className="flex-1 relative overflow-x-auto overflow-y-hidden timeline-grid cursor-crosshair group/v"
                     onClick={handleTimelineClick}
                 >
-                    {/* Time Markers */}
                     <div className="h-10 border-b border-border relative bg-surface/20">
                         {Array.from({ length: 50 }).map((_, i) => (
                             <div
@@ -127,7 +118,6 @@ export const Timeline = () => {
                         ))}
                     </div>
 
-                    {/* Playhead */}
                     <motion.div
                         className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-40 pointer-events-none shadow-[0_0_15px_rgba(239,68,68,0.5)]"
                         animate={{ x: currentTime * zoom }}
@@ -136,7 +126,6 @@ export const Timeline = () => {
                         <div className="w-4 h-5 bg-red-500 absolute -top-1 -left-[7px] [clip-path:polygon(0%_0%,100%_0%,100%_70%,50%_100%,0%_70%)]" />
                     </motion.div>
 
-                    {/* Track Tracks */}
                     {tracks.map((track) => (
                         <div key={track.id} className="h-24 border-b border-white/5 relative">
                             {clips.filter(c => c.trackId === track.id).map(clip => (
@@ -164,7 +153,6 @@ export const Timeline = () => {
                                         <span className="text-[10px] font-black uppercase tracking-tight text-white group-hover:text-accent transition-colors">{clip.name}</span>
                                         <div className="text-[8px] font-mono opacity-50">{clip.duration.toFixed(1)}s</div>
                                     </div>
-                                    {/* Visual Waveform Mock */}
                                     <div className="flex items-end gap-[1px] h-4 opacity-30 group-hover:opacity-60 transition-opacity">
                                         {Array.from({ length: 40 }).map((_, i) => (
                                             <div
@@ -174,7 +162,6 @@ export const Timeline = () => {
                                             />
                                         ))}
                                     </div>
-                                    {/* Resize handle */}
                                     <motion.div
                                         drag="x"
                                         dragMomentum={false}

@@ -3,10 +3,11 @@ import { create } from 'zustand';
 export interface Clip {
   id: string;
   name: string;
-  start: number; // in seconds
-  duration: number; // in seconds
+  start: number;
+  duration: number;
   trackId: number;
-  source?: string; // Real file path
+  source?: string;
+  format?: 'video' | 'audio' | 'image';
   properties: {
     opacity: number;
     scale: number;

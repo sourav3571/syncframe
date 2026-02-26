@@ -15,7 +15,11 @@ export const HardwareStatus = () => {
     const [caps, setCaps] = useState<Caps | null>(null);
 
     useEffect(() => {
-        invoke<Caps>('detect_system_capabilities').then(setCaps);
+        invoke<Caps>('detect_system_capabilities')
+            .then(setCaps)
+            .catch(err => {
+                console.error("Failed to detect system capabilities:", err);
+            });
     }, []);
 
     if (!caps) return (

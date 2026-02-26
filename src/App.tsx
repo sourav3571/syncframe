@@ -86,7 +86,6 @@ function App() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      // Serialize clips for backend
       const renderClips = clips.map(c => ({
         id: c.id,
         source: c.source || "",
@@ -115,10 +114,8 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden text-textMain bg-background selection:bg-accent/40">
-      {/* Dynamic Background Glow */}
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-accent/10 blur-[120px] pointer-events-none -z-10" />
 
-      {/* Header */}
       <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 glass-panel z-50">
         <div className="flex items-center gap-5">
           <motion.div
@@ -154,12 +151,9 @@ function App() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 flex overflow-hidden">
-        {/* Left: Media Library */}
         <div style={{ width: leftPanelWidth }} className="relative shrink-0">
           <MediaLibrary />
-          {/* Right Resize Handle */}
           <div
             className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize z-50 hover:bg-accent/50 transition-colors"
             onMouseDown={() => {
@@ -169,7 +163,6 @@ function App() {
           />
         </div>
 
-        {/* Center: Viewport Area */}
         <section className="flex-1 flex flex-col bg-background/50">
           <div className="p-3 border-b border-white/5 flex items-center justify-between px-8 bg-surface/40 backdrop-blur-md">
             <div className="flex items-center gap-3">
@@ -197,13 +190,10 @@ function App() {
             </button>
           </div>
 
-          {/* Viewport Render Area */}
           <div className="flex-1 flex items-center justify-center p-4 bg-background relative overflow-hidden">
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none" />
 
-            {/* Audio Renderer */}
             {clips.filter(c => c.trackId === 2).map(audioClip => {
-              // Check if audio should be playing
               const isActive = currentTime >= audioClip.start && currentTime < audioClip.start + audioClip.duration;
               const offset = currentTime - audioClip.start;
 
@@ -218,7 +208,7 @@ function App() {
                         if (Math.abs(el.currentTime - offset) > 0.5) {
                           el.currentTime = offset;
                         }
-                        el.volume = (audioClip.properties?.opacity || 100) / 100; // Use opacity as volume hack for now
+                        el.volume = (audioClip.properties?.opacity || 100) / 100;
                       } else {
                         if (!el.paused) el.pause();
                       }
@@ -253,34 +243,43 @@ function App() {
                   const primaryVideo = activeVideo || selectedVideo;
 
                   if (primaryVideo && primaryVideo.source) {
+                    if (primaryVideo.format === 'image') {
+                      return (
+                        <img
+                          key={primaryVideo.id}
+                          src={convertFileSrc(primaryVideo.source)}
+                          className="w-full h-full object-contain"
+                          alt={primaryVideo.name}
+                        />
+                      );
+                    }
+                    console.log("Rendering video:", primaryVideo.source);
                     return (
                       <video
                         key={primaryVideo.id}
                         src={convertFileSrc(primaryVideo.source)}
                         className="w-full h-full object-contain"
+                        muted
+                        playsInline
+                        autoPlay
+                        preload="auto"
                         onTimeUpdate={() => {
-                          // Only allow ONE video to drive the clock to avoid loops
-                          if (!videoRef.current?.paused) {
-                            // No-op for now, driven by store
-                          }
                         }}
                         ref={(el) => {
-                          // Sync video element to store time
                           if (el) {
                             const clipStart = primaryVideo.start;
                             const clipEnd = primaryVideo.start + primaryVideo.duration;
                             const clampedTime = Math.min(Math.max(currentTime, clipStart), clipEnd);
                             const offset = clampedTime - clipStart;
-                            if (Math.abs(el.currentTime - offset) > 0.5) {
+                            if (Math.abs(el.currentTime - offset) > 0.1) {
                               el.currentTime = offset;
                             }
                           }
-                          videoRef.current = el; // Assign to ref
+                          videoRef.current = el;
                         }}
                       />
                     );
                   } else if (selectedClip) {
-                    // Fallback: Show selected clip info if no video is playing
                     return (
                       <motion.div
                         key={selectedClip.id}
@@ -324,7 +323,6 @@ function App() {
             transition={{ type: "spring", bounce: 0, duration: 0.2 }}
             className="relative border-t border-white/5 bg-background z-40"
           >
-            {/* Drag Handle Area */}
             <div
               className="absolute -top-1.5 left-0 right-0 h-3 cursor-row-resize z-50 group flex justify-center"
               onMouseDown={() => {
@@ -348,10 +346,8 @@ function App() {
           </motion.div>
         </section>
 
-        {/* Right: Properties Panel */}
         <div style={{ width: rightPanelWidth }} className="relative shrink-0">
           <PropertiesPanel />
-          {/* Left Resize Handle */}
           <div
             className="absolute top-0 left-0 w-1.5 h-full cursor-col-resize z-50 hover:bg-accent/50 transition-colors"
             onMouseDown={() => {
