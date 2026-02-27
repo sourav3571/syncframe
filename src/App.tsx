@@ -221,7 +221,7 @@ function App() {
             <motion.div
               layout
               className="h-full max-h-full aspect-video max-w-5xl bg-black rounded-lg shadow-[0_30px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden flex items-center justify-center relative border border-white/10 ring-1 ring-white/5"
-              style={(() => {
+              animate={(() => {
                 const activeVideo = clips.find(c => c.trackId === 1 && currentTime >= c.start && currentTime < c.start + c.duration);
                 const selectedVideo = selectedClip && selectedClip.trackId === 1 && selectedClip.source ? selectedClip : null;
                 const targetClip = activeVideo || selectedVideo;
@@ -229,12 +229,14 @@ function App() {
                 if (targetClip) {
                   return {
                     filter: `blur(${targetClip.properties.filters.blur}px) brightness(${targetClip.properties.filters.brightness}%) contrast(${targetClip.properties.filters.contrast}%) ${targetClip.properties.filters.sepia ? 'sepia(1)' : ''} ${targetClip.properties.filters.grayscale ? 'grayscale(1)' : ''}`,
-                    transform: `rotate(${targetClip.properties.rotation}deg) scale(${targetClip.properties.scale / 100})`,
+                    rotate: targetClip.properties.rotation,
+                    scale: targetClip.properties.scale / 100,
                     opacity: targetClip.properties.opacity / 100
                   };
                 }
-                return {};
+                return { opacity: 0.1, rotate: 0, scale: 1, filter: 'none' };
               })()}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
             >
               <AnimatePresence mode="wait">
                 {(() => {
@@ -259,7 +261,6 @@ function App() {
                         key={primaryVideo.id}
                         src={convertFileSrc(primaryVideo.source)}
                         className="w-full h-full object-contain"
-                        muted
                         playsInline
                         autoPlay
                         preload="auto"
@@ -274,6 +275,13 @@ function App() {
                             if (Math.abs(el.currentTime - offset) > 0.1) {
                               el.currentTime = offset;
                             }
+                            // Only play if global isPlaying is true
+                            if (isPlaying && el.paused) {
+                              el.play().catch(err => console.error("Video play failed:", err));
+                            } else if (!isPlaying && !el.paused) {
+                              el.pause();
+                            }
+                            el.volume = (primaryVideo.properties?.opacity || 100) / 100;
                           }
                           videoRef.current = el;
                         }}

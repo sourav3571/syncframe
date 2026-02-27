@@ -76,7 +76,7 @@ export const MediaLibrary = () => {
         }
     };
 
-    const handleAddAsset = (name: string) => {
+    const handleAddAsset = (name: string, isAudio: boolean = false) => {
         const id = Math.random().toString(36).substr(2, 9);
         const dur = 5 + Math.random() * 10;
         const start = Math.max(0, currentTime - dur / 2);
@@ -86,8 +86,9 @@ export const MediaLibrary = () => {
             name,
             start,
             duration: dur,
-            trackId: 1,
+            trackId: isAudio ? 2 : 1,
             source: '',
+            format: isAudio ? 'audio' : 'video',
             properties: {
                 opacity: 100,
                 scale: 100,
@@ -208,6 +209,68 @@ export const MediaLibrary = () => {
                                         </div>
                                     </motion.div>
                                 ))}
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'audio' && (
+                            <motion.div
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: 10 }}
+                                key="audio"
+                                className="space-y-4"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-textDim">Sound Library</h3>
+                                    <Music size={12} className="text-textDim" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {[
+                                        { name: 'Ambient_Bass.wav', color: 'from-blue-500/10' },
+                                        { name: 'Synth_Loop.mp3', color: 'from-purple-500/10' },
+                                        { name: 'Riser.wav', color: 'from-red-500/10' },
+                                        { name: 'Impact.wav', color: 'from-green-500/10' }
+                                    ].map((asset) => (
+                                        <motion.div
+                                            key={asset.name}
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            className={`aspect-[4/3] bg-gradient-to-br ${asset.color} to-surface rounded-xl border border-border flex flex-col items-center justify-center cursor-pointer glass-card relative overflow-hidden group`}
+                                            onClick={() => handleAddAsset(asset.name, true)}
+                                        >
+                                            <Music size={24} className="text-textDim group-hover:text-accent group-hover:scale-110 transition-all duration-300" />
+                                            <div className="absolute bottom-2 left-2 right-2 truncate text-[9px] font-bold text-textDim group-hover:text-textMain transition-colors">{asset.name}</div>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {activeTab === 'text' && (
+                            <motion.div
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: 10 }}
+                                key="text"
+                                className="space-y-4"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-textDim">Titles & Lower Thirds</h3>
+                                    <Type size={12} className="text-textDim" />
+                                </div>
+                                <div className="grid grid-cols-1 gap-3">
+                                    {['Modern Title', 'Cinematic Fade', 'Tech Overlay', 'Minimal Text'].map((text) => (
+                                        <motion.div
+                                            key={text}
+                                            whileHover={{ scale: 1.02, x: 5 }}
+                                            className="p-4 bg-surface border border-border rounded-xl flex items-center gap-3 cursor-pointer hover:bg-surfaceHighlight transition-all"
+                                            onClick={() => handleAddAsset(text)}
+                                        >
+                                            <Type size={14} className="text-accent" />
+                                            <span className="text-[11px] font-bold text-textMain">{text}</span>
+                                        </motion.div>
+                                    ))}
+                                </div>
                             </motion.div>
                         )}
                     </AnimatePresence>
