@@ -38,8 +38,9 @@ pub async fn get_media_metadata(path: String) -> Result<MediaMetadata, String> {
             let duration_str = String::from_utf8_lossy(&o.stdout);
             let duration = duration_str.trim().parse::<f64>().unwrap_or(0.0);
             
-            let is_audio = path.ends_with(".mp3") || path.ends_with(".wav") || path.ends_with(".aac");
-            let is_image = path.ends_with(".png") || path.ends_with(".jpg") || path.ends_with(".jpeg") || path.ends_with(".webp") || path.ends_with(".gif") || path.ends_with(".svg");
+            let path_lc = path.to_lowercase();
+            let is_audio = path_lc.ends_with(".mp3") || path_lc.ends_with(".wav") || path_lc.ends_with(".aac") || path_lc.ends_with(".m4a") || path_lc.ends_with(".ogg");
+            let is_image = path_lc.ends_with(".png") || path_lc.ends_with(".jpg") || path_lc.ends_with(".jpeg") || path_lc.ends_with(".webp") || path_lc.ends_with(".gif") || path_lc.ends_with(".svg");
 
             Ok(MediaMetadata {
                 duration,
@@ -49,8 +50,9 @@ pub async fn get_media_metadata(path: String) -> Result<MediaMetadata, String> {
         },
         _ => {
             println!("FFmpeg not found or failed. Returning default metadata.");
-            let is_audio = path.ends_with(".mp3") || path.ends_with(".wav") || path.ends_with(".aac");
-            let is_image = path.ends_with(".png") || path.ends_with(".jpg") || path.ends_with(".jpeg") || path.ends_with(".webp") || path.ends_with(".gif") || path.ends_with(".svg");
+            let path_lc = path.to_lowercase();
+            let is_audio = path_lc.ends_with(".mp3") || path_lc.ends_with(".wav") || path_lc.ends_with(".aac") || path_lc.ends_with(".m4a") || path_lc.ends_with(".ogg");
+            let is_image = path_lc.ends_with(".png") || path_lc.ends_with(".jpg") || path_lc.ends_with(".jpeg") || path_lc.ends_with(".webp") || path_lc.ends_with(".gif") || path_lc.ends_with(".svg");
             
             Ok(MediaMetadata {
                 duration: if is_image { 5.0 } else { 10.0 },

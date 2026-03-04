@@ -8,17 +8,313 @@ import { PropertiesPanel } from "./components/PropertiesPanel";
 import { useTimelineStore } from "./store/useTimelineStore";
 import { Video, Share, Settings, Play, FastForward, Rewind, Maximize2, Layers } from "lucide-react";
 
-function App() {
-  const { clips, currentTime } = useTimelineStore();
-  const selectedClipId = useTimelineStore((state) => state.selectedClipId);
+// Dedicated renderer for timeline clips to handle synchronization without lag
+const ClipRenderer = ({ clip, currentTime, isPlaying, isAudioOnly = false }: { clip: any, currentTime: number, isPlaying: boolean, isAudioOnly?: boolean }) => {
+  const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
+
+  // Robust source resolution
+  const resolveSource = (src: string) => {
+    if (!src) return "";
+    if (src.startsWith('http') || src.startsWith('asset:') || src.startsWith('data:')) return src;
+    if (src.startsWith('/')) {
+      return new URL(src, window.location.origin).href;
+    }
+    return convertFileSrc(src);
+  };
+
+  const source = resolveSource(clip.source || "");
+  const isActive = currentTime >= clip.start && currentTime < clip.start + clip.duration;
+
+  // Priming listener for global playback initialization
+  useEffect(() => {
+    const el = mediaRef.current;
+    if (!el) return;
+
+    const primeElement = () => {
+      el.load();
+      el.play().then(() => el.pause()).catch(() => { });
+    };
+
+    if ((window as any).__syncframe_primed) {
+      primeElement();
+    }
+
+    const handlePrime = () => primeElement();
+    window.addEventListener('prime-media', handlePrime);
+    return () => window.removeEventListener('prime-media', handlePrime);
+  }, []);
+
+  useEffect(() => {
+    const el = mediaRef.current;
+    if (!el) return;
+
+    // Aggressive Play/Pause Sync
+    const syncPlayback = async () => {
+      try {
+        if (isPlaying && isActive) {
+          if (el.paused) {
+            console.info(`[ClipSync] Attempting play: ${clip.name}`);
+            el.muted = false;
+            await el.play();
+          }
+        } else {
+          if (!el.paused) {
+            console.info(`[ClipSync] Pausing: ${clip.name}`);
+            el.pause();
+          }
+        }
+      } catch (err: any) {
+        const msg = `Autoplay Blocked [${clip.name}]: ${err.message}`;
+        console.warn(msg);
+        if (isActive && isPlaying) {
+          (window as any).__syncframe_errors = (window as any).__syncframe_errors || [];
+          if (!(window as any).__syncframe_errors.includes(msg)) {
+            (window as any).__syncframe_errors.push(msg);
+            window.dispatchEvent(new CustomEvent('syncframe-error'));
+          }
+        }
+      }
+    };
+
+    syncPlayback();
+  }, [isPlaying, isActive, clip.name]);
+
+  useEffect(() => {
+    const el = mediaRef.current;
+    if (!el || !isActive) return;
+
+    // Sync time offset (only if drift is significant)
+    const expectedOffset = currentTime - clip.start;
+    const drift = Math.abs(el.currentTime - expectedOffset);
+    // Relaxed threshold to reduce jitter (0.4s)
+    if (drift > 0.4) {
+      try {
+        el.currentTime = Math.max(0, expectedOffset);
+      } catch (e) {
+        // Ignore if element is not ready to set currentTime
+      }
+    }
+  }, [currentTime, clip.start, isActive]);
+
+  useEffect(() => {
+    const el = mediaRef.current;
+    if (!el) return;
+    const targetVolume = isActive ? (clip.properties?.opacity || 100) / 100 : 0;
+    el.volume = Math.min(1, Math.max(0, targetVolume));
+  }, [clip.properties?.opacity, isActive]);
+
+  const handleError = (e: any) => {
+    const errorMsg = `Media Error [${clip.name}]: ${e.target.error?.message || 'Unknown error'}`;
+    console.error(errorMsg);
+    (window as any).__syncframe_errors = (window as any).__syncframe_errors || [];
+    (window as any).__syncframe_errors.push(errorMsg);
+    window.dispatchEvent(new CustomEvent('syncframe-error'));
+  };
+
+  if (isAudioOnly) {
+    return (
+      <audio
+        ref={mediaRef as any}
+        src={source}
+        preload="auto"
+        crossOrigin="anonymous"
+        onError={handleError}
+        style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0.01 }}
+      />
+    );
+  }
+
+  const properties = clip.properties;
+  let filterString = `blur(${properties.filters.blur}px) brightness(${properties.filters.brightness}%) contrast(${properties.filters.contrast}%) ${properties.filters.sepia ? 'sepia(1)' : ''} ${properties.filters.grayscale ? 'grayscale(1)' : ''}`;
+  if (properties.filters.custom && properties.filters.custom !== 'none') filterString += ` ${properties.filters.custom}`;
+  if (properties.adjustments) {
+    const adj = properties.adjustments;
+    filterString += ` saturate(${adj.saturation}%) brightness(${100 + adj.exposure}%) hue-rotate(${adj.tint}deg)`;
+  }
+
+  if (clip.format === 'text') {
+    return (
+      <div
+        style={{
+          fontFamily: properties.textStyle?.font || 'Inter',
+          color: properties.textStyle?.color || 'white',
+          textShadow: properties.textStyle?.shadow || 'none',
+          animation: properties.textStyle?.animation !== 'none' ? `${properties.textStyle?.animation} 2s infinite` : 'none'
+        }}
+        className="text-4xl font-black text-center"
+      >
+        {clip.textContent}
+      </div>
+    );
+  }
+
+  if (clip.format === 'sticker') {
+    return <div className="text-8xl drop-shadow-2xl">{clip.stickerId}</div>;
+  }
+
+  if (clip.format === 'image') {
+    return <img src={source} className="w-full h-full object-contain shadow-2xl" alt={clip.name} />;
+  }
+
+  if (clip.format === 'filter' || clip.format === 'adjustment') {
+    return (
+      <div
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        style={{ backdropFilter: filterString }}
+      />
+    );
+  }
+
+  return (
+    <video
+      ref={mediaRef as any}
+      src={source}
+      className="w-full h-full object-contain"
+      playsInline
+      muted={false}
+      preload="auto"
+      crossOrigin="anonymous"
+      onError={handleError}
+      style={{ filter: clip.format === 'video' ? filterString : 'none' }}
+    />
+  );
+};
+
+// Isolated Visual Renderer to prevent full-app re-renders at 60fps
+const VisualRenderer = () => {
+  const clips = useTimelineStore(s => s.clips);
+  const currentTime = useTimelineStore(s => s.currentTime);
+  const isPlaying = useTimelineStore(s => s.isPlaying);
+  const selectedClipId = useTimelineStore(s => s.selectedClipId);
   const selectedClip = clips.find(c => c.id === selectedClipId);
-  const videoRef = useRef<HTMLVideoElement>(null);
+
+  return (
+    <AnimatePresence mode="popLayout">
+      {clips
+        .filter(c => c.format !== 'audio' && currentTime >= c.start && currentTime < c.start + c.duration)
+        .sort((a, b) => a.trackId - b.trackId)
+        .map((clip) => (
+          <motion.div
+            key={clip.id}
+            initial={{ opacity: 0 }}
+            animate={{
+              opacity: clip.properties.opacity / 100,
+              scale: clip.properties.scale / 100,
+              rotate: clip.properties.rotation,
+            }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            style={{ zIndex: 10 - clip.trackId }}
+          >
+            <ClipRenderer clip={clip} currentTime={currentTime} isPlaying={isPlaying} />
+          </motion.div>
+        ))
+      }
+
+      {(() => {
+        const hasActiveVisualClips = clips.some(c => c.format !== 'audio' && currentTime >= c.start && currentTime < c.start + c.duration);
+
+        if (!hasActiveVisualClips && selectedClip) {
+          return (
+            <motion.div
+              key={selectedClip.id}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.1 }}
+              className="text-center"
+            >
+              <div className="text-[12px] font-bold text-accent mb-3 uppercase tracking-[0.4em] mono">Selected Node: {selectedClip.id}</div>
+              <div className="text-6xl font-black text-white italic uppercase select-none drop-shadow-2xl">{selectedClip.name}</div>
+              <div className="mt-8 flex justify-center gap-4">
+                <div className="px-4 py-1 rounded-full border border-white/10 text-[10px] font-bold text-textDim uppercase tracking-widest backdrop-blur">
+                  {selectedClip.properties.scale}% Scale
+                </div>
+                <div className="px-4 py-1 rounded-full border border-white/10 text-[10px] font-bold text-textDim uppercase tracking-widest backdrop-blur">
+                  {selectedClip.properties.rotation}° Rot
+                </div>
+              </div>
+            </motion.div>
+          );
+        } else if (!hasActiveVisualClips) {
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.1 }}
+              className="flex flex-col items-center"
+            >
+              <Video size={100} className="mb-6 text-accent" />
+              <div className="text-sm font-black uppercase tracking-[1em] text-white">Standby</div>
+            </motion.div>
+          );
+        }
+        return null;
+      })()}
+    </AnimatePresence>
+  );
+};
+
+// Isolated Audio Engine to prevent full-app re-renders at 60fps
+const AudioEngine = () => {
+  const clips = useTimelineStore(s => s.clips);
+  const currentTime = useTimelineStore(s => s.currentTime);
+  const isPlaying = useTimelineStore(s => s.isPlaying);
+
+  return (
+    <div
+      style={{ position: 'fixed', bottom: 0, right: 0, width: 1, height: 1, opacity: 0.01, zIndex: -100, pointerEvents: 'none' }}
+      className="overflow-hidden"
+    >
+      <audio
+        autoPlay
+        loop
+        muted={false}
+        src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA== "
+        onPlay={() => console.info("[SystemEngine] Heartbeat started")}
+      />
+      {clips
+        .filter(c => c.format === 'audio')
+        .map(clip => (
+          <ClipRenderer key={clip.id} clip={clip} currentTime={currentTime} isPlaying={isPlaying} isAudioOnly />
+        ))
+      }
+    </div>
+  );
+};
+
+
+
+
+function App() {
+  const isPlaying = useTimelineStore(s => s.isPlaying);
+  const setIsPlaying = useTimelineStore(s => s.setIsPlaying);
+  const initializeTracks = useTimelineStore(s => s.initializeTracks);
+
+  const [errorLog, setErrorLog] = useState<string[]>([]);
+  const [isErrorPanelExpanded, setIsErrorPanelExpanded] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isTimelineCollapsed, setIsTimelineCollapsed] = useState(false);
   const [timelineHeight, setTimelineHeight] = useState(window.innerHeight * 0.45);
   const [leftPanelWidth, setLeftPanelWidth] = useState(320);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [primed, setPrimed] = useState(false);
+
+  useEffect(() => {
+    const updateLogs = () => {
+      const errors = (window as any).__syncframe_errors || [];
+      setErrorLog(prev => {
+        if (prev.length === errors.length) return prev;
+        return [...errors];
+      });
+    };
+    window.addEventListener('syncframe-error', updateLogs);
+    updateLogs();
+    return () => window.removeEventListener('syncframe-error', updateLogs);
+  }, []);
+
+  useEffect(() => {
+    initializeTracks();
+  }, [initializeTracks]);
+
   const requestRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
   const isDraggingRef = useRef<'timeline' | 'left' | 'right' | null>(null);
@@ -80,18 +376,27 @@ function App() {
   }, [isPlaying]);
 
   const togglePlay = () => {
+    const state = useTimelineStore.getState();
+    console.info(`[SystemEngine] Toggle Play: ${!isPlaying} | Clips: ${state.clips.length} | Time: ${state.currentTime.toFixed(2)}`);
+    if (!primed) {
+      window.dispatchEvent(new CustomEvent('prime-media'));
+      (window as any).__syncframe_primed = true;
+      setPrimed(true);
+    }
     setIsPlaying(!isPlaying);
   };
 
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const renderClips = clips.map(c => ({
+      const state = useTimelineStore.getState();
+      const renderClips = state.clips.map(c => ({
         id: c.id,
         source: c.source || "",
         start: c.start,
         duration: c.duration,
-        track_type: c.trackId === 1 ? "video" : "audio"
+        track_type: c.trackId <= 3 ? "video" : "audio",
+        track_id: c.trackId
       })).filter(c => c.source !== "");
 
       if (renderClips.length === 0) {
@@ -112,9 +417,29 @@ function App() {
     }
   };
 
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+
+  const toggleFullScreen = () => {
+    if (!playerContainerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      playerContainerRef.current.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col overflow-hidden text-textMain bg-background selection:bg-accent/40">
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-accent/10 blur-[120px] pointer-events-none -z-10" />
+
+      <AudioEngine />
+
+
 
       <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 glass-panel z-50">
         <div className="flex items-center gap-5">
@@ -136,6 +461,69 @@ function App() {
         <HardwareStatus />
 
         <div className="flex items-center gap-4">
+          {/* Integrated System Engine Button */}
+          <div className="relative">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              onClick={() => setIsErrorPanelExpanded(!isErrorPanelExpanded)}
+              className={`p-2 rounded-full transition-all border ${errorLog.length > 0
+                ? 'bg-red-500/10 border-red-500/30'
+                : 'bg-white/5 border-transparent hover:bg-white/10'
+                }`}
+              title="System Engine Status"
+            >
+              <div className={`w-2 h-2 rounded-full ${errorLog.length > 0 ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
+            </motion.button>
+
+            <AnimatePresence>
+              {isErrorPanelExpanded && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 top-14 bg-surfaceHighlight/95 border border-white/10 p-5 rounded-3xl backdrop-blur-3xl shadow-2xl w-80 z-[100]"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-textMain">System Engine</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          window.dispatchEvent(new CustomEvent('prime-media'));
+                          (window as any).__syncframe_primed = true;
+                        }}
+                        className="text-[9px] font-bold bg-accent text-background px-3 py-1 rounded-full"
+                      >
+                        Force Unlock
+                      </button>
+                      <button
+                        onClick={() => {
+                          (window as any).__syncframe_errors = [];
+                          setErrorLog([]);
+                          setIsErrorPanelExpanded(false);
+                        }}
+                        className="text-[9px] font-bold bg-white/10 text-white px-3 py-1 rounded-full border border-white/5"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  {errorLog.length > 0 ? (
+                    <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                      {errorLog.map((err, i) => (
+                        <div key={i} className="text-[10px] font-mono text-red-100 bg-red-500/10 p-2 rounded-lg border border-red-500/20 leading-tight">
+                          {err}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[10px] italic text-textDim text-center py-2">Hardware & Media: Optimized</div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           <motion.button whileHover={{ scale: 1.1 }} className="text-textDim hover:text-white p-2 rounded-full hover:bg-white/5 transition-all">
             <Settings size={20} />
           </motion.button>
@@ -151,7 +539,7 @@ function App() {
         </div>
       </header>
 
-      <main className="flex-1 flex overflow-hidden">
+      <main className="flex-1 flex overflow-hidden text-white">
         <div style={{ width: leftPanelWidth }} className="relative shrink-0">
           <MediaLibrary />
           <div
@@ -185,7 +573,10 @@ function App() {
               <FastForward size={18} className="text-textDim hover:text-white cursor-pointer transition-colors" />
             </div>
 
-            <button className="p-2 rounded-lg hover:bg-white/5 transition-colors">
+            <button
+              onClick={toggleFullScreen}
+              className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+            >
               <Maximize2 size={16} className="text-textDim" />
             </button>
           </div>
@@ -193,135 +584,12 @@ function App() {
           <div className="flex-1 flex items-center justify-center p-4 bg-background relative overflow-hidden">
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none" />
 
-            {clips.filter(c => c.trackId === 2).map(audioClip => {
-              const isActive = currentTime >= audioClip.start && currentTime < audioClip.start + audioClip.duration;
-              const offset = currentTime - audioClip.start;
-
-              return (
-                <audio
-                  key={audioClip.id}
-                  src={convertFileSrc(audioClip.source || "")}
-                  ref={(el) => {
-                    if (el) {
-                      if (isActive) {
-                        if (el.paused) el.play().catch(() => { });
-                        if (Math.abs(el.currentTime - offset) > 0.5) {
-                          el.currentTime = offset;
-                        }
-                        el.volume = (audioClip.properties?.opacity || 100) / 100;
-                      } else {
-                        if (!el.paused) el.pause();
-                      }
-                    }
-                  }}
-                />
-              );
-            })}
-
             <motion.div
               layout
+              ref={playerContainerRef}
               className="h-full max-h-full aspect-video max-w-5xl bg-black rounded-lg shadow-[0_30px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden flex items-center justify-center relative border border-white/10 ring-1 ring-white/5"
-              animate={(() => {
-                const activeVideo = clips.find(c => c.trackId === 1 && currentTime >= c.start && currentTime < c.start + c.duration);
-                const selectedVideo = selectedClip && selectedClip.trackId === 1 && selectedClip.source ? selectedClip : null;
-                const targetClip = activeVideo || selectedVideo;
-
-                if (targetClip) {
-                  return {
-                    filter: `blur(${targetClip.properties.filters.blur}px) brightness(${targetClip.properties.filters.brightness}%) contrast(${targetClip.properties.filters.contrast}%) ${targetClip.properties.filters.sepia ? 'sepia(1)' : ''} ${targetClip.properties.filters.grayscale ? 'grayscale(1)' : ''}`,
-                    rotate: targetClip.properties.rotation,
-                    scale: targetClip.properties.scale / 100,
-                    opacity: targetClip.properties.opacity / 100
-                  };
-                }
-                return { opacity: 0.1, rotate: 0, scale: 1, filter: 'none' };
-              })()}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
             >
-              <AnimatePresence mode="wait">
-                {(() => {
-                  const activeVideo = clips.find(c => c.trackId === 1 && currentTime >= c.start && currentTime < c.start + c.duration);
-                  const selectedVideo = selectedClip && selectedClip.trackId === 1 && selectedClip.source ? selectedClip : null;
-                  const primaryVideo = activeVideo || selectedVideo;
-
-                  if (primaryVideo && primaryVideo.source) {
-                    if (primaryVideo.format === 'image') {
-                      return (
-                        <img
-                          key={primaryVideo.id}
-                          src={convertFileSrc(primaryVideo.source)}
-                          className="w-full h-full object-contain"
-                          alt={primaryVideo.name}
-                        />
-                      );
-                    }
-                    console.log("Rendering video:", primaryVideo.source);
-                    return (
-                      <video
-                        key={primaryVideo.id}
-                        src={convertFileSrc(primaryVideo.source)}
-                        className="w-full h-full object-contain"
-                        playsInline
-                        autoPlay
-                        preload="auto"
-                        onTimeUpdate={() => {
-                        }}
-                        ref={(el) => {
-                          if (el) {
-                            const clipStart = primaryVideo.start;
-                            const clipEnd = primaryVideo.start + primaryVideo.duration;
-                            const clampedTime = Math.min(Math.max(currentTime, clipStart), clipEnd);
-                            const offset = clampedTime - clipStart;
-                            if (Math.abs(el.currentTime - offset) > 0.1) {
-                              el.currentTime = offset;
-                            }
-                            // Only play if global isPlaying is true
-                            if (isPlaying && el.paused) {
-                              el.play().catch(err => console.error("Video play failed:", err));
-                            } else if (!isPlaying && !el.paused) {
-                              el.pause();
-                            }
-                            el.volume = (primaryVideo.properties?.opacity || 100) / 100;
-                          }
-                          videoRef.current = el;
-                        }}
-                      />
-                    );
-                  } else if (selectedClip) {
-                    return (
-                      <motion.div
-                        key={selectedClip.id}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 1.1 }}
-                        className="text-center"
-                      >
-                        <div className="text-[12px] font-bold text-accent mb-3 uppercase tracking-[0.4em] mono">Selected Node: {selectedClip.id}</div>
-                        <div className="text-6xl font-black text-white italic uppercase select-none drop-shadow-2xl">{selectedClip.name}</div>
-                        <div className="mt-8 flex justify-center gap-4">
-                          <div className="px-4 py-1 rounded-full border border-white/10 text-[10px] font-bold text-textDim uppercase tracking-widest backdrop-blur">
-                            {selectedClip.properties.scale}% Scale
-                          </div>
-                          <div className="px-4 py-1 rounded-full border border-white/10 text-[10px] font-bold text-textDim uppercase tracking-widest backdrop-blur">
-                            {selectedClip.properties.rotation}° Rot
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  } else {
-                    return (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 0.1 }}
-                        className="flex flex-col items-center"
-                      >
-                        <Video size={100} className="mb-6 text-accent" />
-                        <div className="text-sm font-black uppercase tracking-[1em] text-white">Standby</div>
-                      </motion.div>
-                    );
-                  }
-                })()}
-              </AnimatePresence>
+              <VisualRenderer />
             </motion.div>
           </div>
 

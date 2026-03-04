@@ -1,11 +1,12 @@
 import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useTimelineStore } from '../../store/useTimelineStore';
-import { Scissors, MousePointer2, ZoomIn, ZoomOut, Clock, Trash2, Eye, Volume2 } from 'lucide-react';
+import { Scissors, MousePointer2, ZoomIn, ZoomOut, Clock, Trash2, Eye, Volume2, Music } from 'lucide-react';
 
 export const Timeline = () => {
     const { tracks, clips, currentTime, zoom, selectedClipId, setCurrentTime, setSelectedClipId, setZoom, splitClip, removeClip, updateClip } = useTimelineStore();
     const timelineRef = useRef<HTMLDivElement>(null);
+    const sidebarRef = useRef<HTMLDivElement>(null);
     const [mode, setMode] = React.useState<'select' | 'split'>('select');
 
     const handleTimelineClick = (e: React.MouseEvent) => {
@@ -28,6 +29,13 @@ export const Timeline = () => {
 
     const handleClipClick = (e: React.MouseEvent, clip: any) => {
         e.stopPropagation();
+
+        if (mode === 'split') {
+            splitClip(clip.id, currentTime);
+            setMode('select');
+            return;
+        }
+
         setSelectedClipId(clip.id);
 
         if (currentTime < clip.start || currentTime > clip.start + clip.duration) {
@@ -88,26 +96,37 @@ export const Timeline = () => {
             </div>
 
             <div className="flex-1 flex overflow-hidden">
-                <div className="w-[110px] bg-surface/60 border-r border-border flex flex-col pt-10">
-                    {tracks.map((track) => (
-                        <div key={track.id} className="h-24 px-3 flex flex-col justify-center gap-2 group border-b border-border bg-background/50 hover:bg-background transition-colors relative">
-                            <span className="text-[9px] font-black uppercase text-textDim group-hover:text-white transition-colors truncate w-full">{track.name}</span>
-                            <div className="flex items-center gap-2">
-                                <button className="text-textDim hover:text-white transition-colors"><Eye size={12} /></button>
-                                <button className="text-textDim hover:text-white transition-colors"><Volume2 size={12} /></button>
-                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-green-500/50" />
+                <div className="w-[110px] bg-surface/60 border-r border-border flex flex-col pt-10 overflow-hidden">
+                    <div
+                        className="flex-1 overflow-y-auto scrollbar-hide"
+                        ref={sidebarRef}
+                    >
+                        {tracks.map((track) => (
+                            <div key={track.id} className="h-16 px-3 flex flex-col justify-center gap-1 group border-b border-border bg-background/50 hover:bg-background transition-colors relative">
+                                <span className="text-[9px] font-black uppercase text-textDim group-hover:text-white transition-colors truncate w-full">{track.name}</span>
+                                <div className="flex items-center gap-2">
+                                    <button className="text-textDim hover:text-white transition-colors">
+                                        {track.id >= 4 ? <Music size={12} /> : <Eye size={12} />}
+                                    </button>
+                                    <button className="text-textDim hover:text-white transition-colors"><Volume2 size={12} /></button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
 
                 <div
                     ref={timelineRef}
-                    className="flex-1 relative overflow-x-auto overflow-y-hidden timeline-grid cursor-crosshair group/v"
+                    className="flex-1 relative overflow-auto custom-scrollbar timeline-grid cursor-crosshair group/v"
                     onClick={handleTimelineClick}
+                    onScroll={(e) => {
+                        if (sidebarRef.current) {
+                            sidebarRef.current.scrollTop = (e.target as HTMLDivElement).scrollTop;
+                        }
+                    }}
                 >
-                    <div className="h-10 border-b border-border relative bg-surface/20">
-                        {Array.from({ length: 50 }).map((_, i) => (
+                    <div className="sticky top-0 h-10 border-b border-border z-50 bg-surface/20 backdrop-blur-md">
+                        {Array.from({ length: 100 }).map((_, i) => (
                             <div
                                 key={i}
                                 className="absolute top-6 h-4 w-px bg-white/10"
@@ -118,64 +137,73 @@ export const Timeline = () => {
                         ))}
                     </div>
 
-                    <motion.div
-                        className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-40 pointer-events-none shadow-[0_0_15px_rgba(239,68,68,0.5)]"
-                        animate={{ x: currentTime * zoom }}
-                        transition={{ type: "spring", bounce: 0, duration: 0.1 }}
-                    >
-                        <div className="w-4 h-5 bg-red-500 absolute -top-1 -left-[7px] [clip-path:polygon(0%_0%,100%_0%,100%_70%,50%_100%,0%_70%)]" />
-                    </motion.div>
+                    <div className="relative pt-0">
+                        <motion.div
+                            className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-40 pointer-events-none shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+                            animate={{ x: currentTime * zoom }}
+                            transition={{ type: "spring", bounce: 0, duration: 0.1 }}
+                            style={{ height: tracks.length * 64 + 40 }}
+                        >
+                            <div className="w-4 h-5 bg-red-500 absolute -top-1 -left-[7px] [clip-path:polygon(0%_0%,100%_0%,100%_70%,50%_100%,0%_70%)]" />
+                        </motion.div>
 
-                    {tracks.map((track) => (
-                        <div key={track.id} className="h-24 border-b border-white/5 relative">
-                            {clips.filter(c => c.trackId === track.id).map(clip => (
-                                <motion.div
-                                    key={clip.id}
-                                    layoutId={clip.id}
-                                    onClick={(e) => handleClipClick(e, clip)}
-                                    whileHover={{ scaleY: 1.02 }}
-                                    className={`clip-item absolute h-16 top-4 rounded-xl flex flex-col justify-center px-4 overflow-hidden cursor-pointer transition-all border-2 group ${selectedClipId === clip.id
-                                        ? 'bg-accent/30 border-accent shadow-[0_0_25px_rgba(255,255,255,0.2)] z-10'
-                                        : 'bg-surfaceHighlight/60 border-white/5 hover:border-white/20'
-                                        }`}
-                                    style={{
-                                        left: clip.start * zoom,
-                                        width: clip.duration * zoom
-                                    }}
-                                    drag="x"
-                                    dragMomentum={false}
-                                    onDragEnd={(_, info) => {
-                                        const newStart = Math.max(0, (clip.start * zoom + info.offset.x) / zoom);
-                                        updateClip(clip.id, { start: newStart });
-                                    }}
-                                >
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <span className="text-[10px] font-black uppercase tracking-tight text-white group-hover:text-accent transition-colors">{clip.name}</span>
-                                        <div className="text-[8px] font-mono opacity-50">{clip.duration.toFixed(1)}s</div>
-                                    </div>
-                                    <div className="flex items-end gap-[1px] h-4 opacity-30 group-hover:opacity-60 transition-opacity">
-                                        {Array.from({ length: 40 }).map((_, i) => (
-                                            <div
-                                                key={i}
-                                                className="w-[2px] bg-accent rounded-full"
-                                                style={{ height: `${20 + Math.random() * 80}%` }}
-                                            />
-                                        ))}
-                                    </div>
+                        {tracks.map((track) => (
+                            <div key={track.id} className="h-16 border-b border-white/5 relative">
+                                {clips.filter(c => c.trackId === track.id).map(clip => (
                                     <motion.div
+                                        key={clip.id}
+                                        layoutId={clip.id}
+                                        onClick={(e) => handleClipClick(e, clip)}
+                                        whileHover={{ scaleY: 1.05 }}
+                                        className={`clip-item absolute h-12 top-2 rounded-lg flex flex-col justify-center px-3 overflow-hidden cursor-pointer transition-all border-2 group ${selectedClipId === clip.id
+                                            ? 'bg-accent/30 border-accent shadow-[0_0_20px_rgba(var(--accent-rgb),0.3)] z-10'
+                                            : clip.format === 'audio'
+                                                ? 'bg-indigo-500/30 border-indigo-400/20 hover:border-indigo-400/40'
+                                                : 'bg-surfaceHighlight/60 border-white/5 hover:border-white/20'
+                                            }`}
+                                        style={{
+                                            left: clip.start * zoom,
+                                            width: Math.max(20, clip.duration * zoom)
+                                        }}
                                         drag="x"
                                         dragMomentum={false}
                                         onDragEnd={(_, info) => {
-                                            const newWidthPx = clip.duration * zoom + info.offset.x;
-                                            const newDuration = Math.max(0.5, newWidthPx / zoom);
-                                            updateClip(clip.id, { duration: newDuration });
+                                            const newStart = Math.max(0, clip.start + info.offset.x / zoom);
+                                            updateClip(clip.id, { start: newStart });
                                         }}
-                                        className="absolute right-1 bottom-1 w-3 h-6 rounded-md bg-white/10 hover:bg-white/30 cursor-ew-resize"
-                                    />
-                                </motion.div>
-                            ))}
-                        </div>
-                    ))}
+                                    >
+                                        <div className="flex items-center justify-between mb-1 translate-y-1">
+                                            <div className="flex items-center gap-1.5 truncate">
+                                                {clip.format === 'audio' && <Music size={10} className="text-indigo-400 shrink-0" />}
+                                                <span className="text-[9px] font-black uppercase tracking-tight text-white group-hover:text-accent transition-colors truncate">{clip.name}</span>
+                                            </div>
+                                            <div className="text-[7px] font-mono opacity-50 shrink-0">{clip.duration.toFixed(1)}s</div>
+                                        </div>
+                                        <div className={`flex items-end gap-[1px] h-4 ${clip.format === 'audio' ? 'opacity-70' : 'opacity-20'} group-hover:opacity-40 transition-opacity translate-y-1`}>
+                                            {Array.from({ length: 20 }).map((_, i) => (
+                                                <div
+                                                    key={i}
+                                                    className={`w-[2px] rounded-full ${clip.format === 'audio' ? 'bg-indigo-400' : 'bg-accent'}`}
+                                                    style={{ height: `${20 + Math.sin(i * 0.5 + clip.start) * 30 + Math.random() * 50}%` }}
+                                                />
+                                            ))}
+                                        </div>
+                                        <motion.div
+                                            drag="x"
+                                            dragMomentum={false}
+                                            onDragEnd={(e, info) => {
+                                                e.stopPropagation();
+                                                const newWidthPx = clip.duration * zoom + info.offset.x;
+                                                const newDuration = Math.max(0.5, newWidthPx / zoom);
+                                                updateClip(clip.id, { duration: newDuration });
+                                            }}
+                                            className="absolute right-1 bottom-1 w-3 h-6 rounded-md bg-white/10 hover:bg-white/30 cursor-ew-resize"
+                                        />
+                                    </motion.div>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>

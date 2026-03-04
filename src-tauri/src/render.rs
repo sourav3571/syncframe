@@ -15,6 +15,7 @@ pub struct RenderClip {
     pub start: f64,
     pub duration: f64,
     pub track_type: String,
+    pub track_id: i32,
 }
 
 #[tauri::command]
@@ -35,56 +36,55 @@ pub async fn start_render(app: AppHandle, output_path: String, encoder: String, 
 
     let mut filter_complex = String::new();
     
-    let mut video_clips: Vec<(usize, &RenderClip)> = Vec::new();
-    let mut audio_clips: Vec<(usize, &RenderClip)> = Vec::new();
+    // 1. Create base black canvas (assuming 10 minute max for now or calculate from clips)
+    let total_duration = clips.iter().map(|c| c.start + c.duration).fold(0.0, f64::max).max(1.0);
+    filter_complex.push_str(&format!("color=s=1920x1080:c=black:d={}[base];", total_duration));
 
-    for (i, clip) in clips.iter().enumerate() {
-        if clip.track_type == "video" {
-            video_clips.push((i, clip));
-        } else {
-            audio_clips.push((i, clip));
+    let mut last_video_label = "base".to_string();
+    let mut video_input_count = 0;
+
+    // Overlay order: Bottom to Top (Video 3, then 2, then 1)
+    for target_track in (1..=3).rev() {
+        let track_clips: Vec<(usize, &RenderClip)> = clips.iter().enumerate()
+            .filter(|(_, c)| c.track_type == "video" && c.track_id == target_track)
+            .collect();
+
+        for (i, clip) in track_clips {
+            let v_label = format!("v{}", i);
+            let ovl_label = format!("ovl{}", i);
+            
+            // Prep the individual clip: trim and set PTS
+            filter_complex.push_str(&format!("[{}:v]trim=duration={},setpts=PTS-STARTPTS[{}];", i, clip.duration, v_label));
+            
+            // Overlay it on the current stack at the specific start time
+            filter_complex.push_str(&format!("[{}][{}]overlay=x=0:y=0:enable='between(t,{},{})'[{}];", 
+                last_video_label, v_label, clip.start, clip.start + clip.duration, ovl_label));
+            
+            last_video_label = ovl_label;
+            video_input_count += 1;
         }
     }
 
-    video_clips.sort_by(|a, b| a.1.start.partial_cmp(&b.1.start).unwrap());
-    audio_clips.sort_by(|a, b| a.1.start.partial_cmp(&b.1.start).unwrap());
+    // Define the final video output label
+    let main_v = if video_input_count > 0 { last_video_label } else { "base".to_string() };
 
-    let mut v_concat_inputs = String::new();
-    let mut a_concat_inputs = String::new();
-
-    for (i, clip) in &video_clips {
-        filter_complex.push_str(&format!("[{}:v]trim=duration={},setpts=PTS-STARTPTS[v{}];", i, clip.duration, i));
-        filter_complex.push_str(&format!("[{}:a]atrim=duration={},asetpts=PTS-STARTPTS[a{}];", i, clip.duration, i));
-        
-        v_concat_inputs.push_str(&format!("[v{}]", i));
-        a_concat_inputs.push_str(&format!("[a{}]", i));
-    }
-
-    if !video_clips.is_empty() {
-         filter_complex.push_str(&format!("{}concat=n={}:v=1:a=0[main_v];", v_concat_inputs, video_clips.len()));
-    } else {
-        return Err("No video tracks found".to_string());
-    }
-
+    // 2. Audio Processing (Mixing all tracks)
     let mut amix_inputs = String::new();
     let mut audio_count = 0;
 
-    for (i, clip) in &video_clips {
-        let delay_ms = (clip.start * 1000.0) as i32;
-        filter_complex.push_str(&format!("[{}:a]atrim=duration={},asetpts=PTS-STARTPTS,adelay={}|{}[a_vid_{}];", i, clip.duration, delay_ms, delay_ms, i));
-        amix_inputs.push_str(&format!("[a_vid_{}]", i));
-        audio_count += 1;
-    }
-
-    for (i, clip) in &audio_clips {
-        let delay_ms = (clip.start * 1000.0) as i32;
-        filter_complex.push_str(&format!("[{}:a]atrim=duration={},asetpts=PTS-STARTPTS,adelay={}|{}[a_ext_{}];", i, clip.duration, delay_ms, delay_ms, i));
-        amix_inputs.push_str(&format!("[a_ext_{}]", i));
+    for (i, clip) in clips.iter().enumerate() {
+        let delay_ms = (clip.start * 1000.0) as i64;
+        let label = if clip.track_type == "video" { format!("a_vid_{}", i) } else { format!("a_ext_{}", i) };
+        
+        filter_complex.push_str(&format!("[{}:a]atrim=duration={},asetpts=PTS-STARTPTS,adelay={}|{}[{}];", 
+            i, clip.duration, delay_ms, delay_ms, label));
+        
+        amix_inputs.push_str(&format!("[{}]", label));
         audio_count += 1;
     }
     
     if audio_count > 0 {
-        filter_complex.push_str(&format!("{}amix=inputs={}:duration=first:dropout_transition=2[outa];", amix_inputs, audio_count));
+        filter_complex.push_str(&format!("{}amix=inputs={}:duration=longest:dropout_transition=2[outa];", amix_inputs, audio_count));
     } else {
         filter_complex.push_str("anullsrc=channel_layout=stereo:sample_rate=44100[outa];"); 
     }
@@ -93,7 +93,7 @@ pub async fn start_render(app: AppHandle, output_path: String, encoder: String, 
     args.push(filter_complex);
     
     args.push("-map".to_string());
-    args.push("[main_v]".to_string());
+    args.push(format!("[{}]", main_v));
     args.push("-map".to_string());
     args.push("[outa]".to_string());
 
@@ -102,6 +102,7 @@ pub async fn start_render(app: AppHandle, output_path: String, encoder: String, 
     args.push("-c:a".to_string());
     args.push("aac".to_string());
     
+    args.push("-shortest".to_string()); // Ensure it doesn't run forever if anullsrc is used poorly
     args.push("-y".to_string());
     args.push(output_path.clone());
 

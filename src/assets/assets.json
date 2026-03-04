@@ -1,0 +1,2031 @@
+{
+    "textStyles": [
+        {
+            "id": "t1",
+            "name": "Modern Sans",
+            "font": "Inter",
+            "color": "#ffffff",
+            "shadow": "0 2px 10px rgba(0,0,0,0.5)",
+            "animation": "none"
+        },
+        {
+            "id": "t2",
+            "name": "Cinematic Serif",
+            "font": "Playfair Display",
+            "color": "#f0f0f0",
+            "shadow": "2px 2px 5px #000",
+            "animation": "fade"
+        },
+        {
+            "id": "t3",
+            "name": "Neon Glow",
+            "font": "Orbitron",
+            "color": "#00f2ff",
+            "shadow": "0 0 20px #00f2ff",
+            "animation": "pulse"
+        },
+        {
+            "id": "t4",
+            "name": "Retro 80s",
+            "font": "Monoton",
+            "color": "#ff00ff",
+            "shadow": "3px 3px 0px #00ffff",
+            "animation": "glitch"
+        },
+        {
+            "id": "t5",
+            "name": "Minimal Thin",
+            "font": "Roboto",
+            "color": "#ffffff",
+            "shadow": "none",
+            "animation": "slide"
+        },
+        {
+            "id": "t6",
+            "name": "Bold Impact",
+            "font": "Impact",
+            "color": "#ffffff",
+            "shadow": "4px 4px 0px #000",
+            "animation": "pop"
+        },
+        {
+            "id": "t7",
+            "name": "Elegant Script",
+            "font": "Great Vibes",
+            "color": "#ffe4e1",
+            "shadow": "1px 1px 2px rgba(0,0,0,0.2)",
+            "animation": "blur"
+        },
+        {
+            "id": "t8",
+            "name": "Future Tech",
+            "font": "Exo 2",
+            "color": "#00ff95",
+            "shadow": "0 0 10px #00ff95",
+            "animation": "scanline"
+        },
+        {
+            "id": "t9",
+            "name": "Vibrant Pop",
+            "font": "Bungee",
+            "color": "#ffcc00",
+            "shadow": "2px 2px 0px #ff0055",
+            "animation": "wave"
+        },
+        {
+            "id": "t10",
+            "name": "Clean Mono",
+            "font": "JetBrains Mono",
+            "color": "#cccccc",
+            "shadow": "none",
+            "animation": "typewriter"
+        },
+        {
+            "id": "t11",
+            "name": "Soft Dream",
+            "font": "Quicksand",
+            "color": "#ffffff",
+            "shadow": "0 5px 15px rgba(255,255,255,0.3)",
+            "animation": "float"
+        },
+        {
+            "id": "t12",
+            "name": "Gothic Metal",
+            "font": "Metal Mania",
+            "color": "#888888",
+            "shadow": "2px 2px 4px #000",
+            "animation": "shake"
+        },
+        {
+            "id": "t13",
+            "name": "Golden Era",
+            "font": "Cinzel",
+            "color": "#ffd700",
+            "shadow": "0 2px 4px rgba(0,0,0,0.8)",
+            "animation": "shine"
+        },
+        {
+            "id": "t14",
+            "name": "Street Art",
+            "font": "Permanent Marker",
+            "color": "#ffffff",
+            "shadow": "2px 2px 0px #ff0000",
+            "animation": "spray"
+        },
+        {
+            "id": "t15",
+            "name": "Smooth Gradient",
+            "font": "Montserrat",
+            "color": "linear-gradient(to right, #ff00cc, #3333ff)",
+            "shadow": "none",
+            "animation": "fade"
+        },
+        {
+            "id": "t16",
+            "name": "Cyberpunk 2077",
+            "font": "Rajdhani",
+            "color": "#fcee0a",
+            "shadow": "2px 2px 0px #000",
+            "animation": "glitch"
+        },
+        {
+            "id": "t17",
+            "name": "Luxury Gold",
+            "font": "Bodoni Moda",
+            "color": "#c4a454",
+            "shadow": "none",
+            "animation": "reveal"
+        },
+        {
+            "id": "t18",
+            "name": "Nature Fresh",
+            "font": "Nunito",
+            "color": "#a8e6cf",
+            "shadow": "none",
+            "animation": "grow"
+        },
+        {
+            "id": "t19",
+            "name": "Bold Outline",
+            "font": "Anton",
+            "color": "transparent",
+            "shadow": "0 0 1px #fff",
+            "animation": "none"
+        },
+        {
+            "id": "t20",
+            "name": "Comic Fun",
+            "font": "Bangers",
+            "color": "#ffff00",
+            "shadow": "3px 3px 0px #000",
+            "animation": "bounce"
+        },
+        {
+            "id": "t21",
+            "name": "Dark Mystery",
+            "font": "Creepster",
+            "color": "#ff0000",
+            "shadow": "0 0 10px #ff0000",
+            "animation": "flicker"
+        },
+        {
+            "id": "t22",
+            "name": "Ice Cold",
+            "font": "Iceberg",
+            "color": "#e0ffff",
+            "shadow": "0 0 15px #00ffff",
+            "animation": "freeze"
+        },
+        {
+            "id": "t23",
+            "name": "Hot Fire",
+            "font": "Ruslan Display",
+            "color": "#ff4500",
+            "shadow": "0 0 20px #ff8c00",
+            "animation": "burn"
+        },
+        {
+            "id": "t24",
+            "name": "Pixel Art",
+            "font": "Press Start 2P",
+            "color": "#00ff00",
+            "shadow": "2px 2px 0px #000",
+            "animation": "pixelate"
+        },
+        {
+            "id": "t25",
+            "name": "Royal Royal",
+            "font": "UnifrakturMaguntia",
+            "color": "#4b0082",
+            "shadow": "1px 1px 0px #ffd700",
+            "animation": "none"
+        },
+        {
+            "id": "t26",
+            "name": "Sketchy",
+            "font": "Architects Daughter",
+            "color": "#333",
+            "shadow": "none",
+            "animation": "sketch"
+        },
+        {
+            "id": "t27",
+            "name": "News Flash",
+            "font": "Libre Baskerville",
+            "color": "#000",
+            "shadow": "none",
+            "animation": "scroll"
+        },
+        {
+            "id": "t28",
+            "name": "Hacker Green",
+            "font": "VT323",
+            "color": "#00ff00",
+            "shadow": "0 0 5px #00ff00",
+            "animation": "typewriter"
+        },
+        {
+            "id": "t29",
+            "name": "Pastel Dream",
+            "font": "Pangolin",
+            "color": "#ffb7b2",
+            "shadow": "none",
+            "animation": "float"
+        },
+        {
+            "id": "t30",
+            "name": "Industrial",
+            "font": "Stardos Stencil",
+            "color": "#555",
+            "shadow": "1px 1px 1px #fff",
+            "animation": "none"
+        },
+        {
+            "id": "t31",
+            "name": "Liquid Flow",
+            "font": "Comfortaa",
+            "color": "#00d2ff",
+            "shadow": "none",
+            "animation": "morph"
+        },
+        {
+            "id": "t32",
+            "name": "Blocky",
+            "font": "Alfa Slab One",
+            "color": "#fff",
+            "shadow": "5px 5px 0px #333",
+            "animation": "pop"
+        },
+        {
+            "id": "t33",
+            "name": "Shadow Realm",
+            "font": "Nosifer",
+            "color": "#000",
+            "shadow": "0 0 15px #ff0000",
+            "animation": "drip"
+        },
+        {
+            "id": "t34",
+            "name": "Electric Blue",
+            "font": "Audiowide",
+            "color": "#00bfff",
+            "shadow": "0 0 10px #00bfff",
+            "animation": "pulse"
+        },
+        {
+            "id": "t35",
+            "name": "Sunset Vibes",
+            "font": "Lobster",
+            "color": "#ff7e5f",
+            "shadow": "2px 2px 4px rgba(0,0,0,0.3)",
+            "animation": "fade"
+        },
+        {
+            "id": "t36",
+            "name": "Silver Screen",
+            "font": "Limelight",
+            "color": "#c0c0c0",
+            "shadow": "1px 1px 1px #000",
+            "animation": "flicker"
+        },
+        {
+            "id": "t37",
+            "name": "Candy Shop",
+            "font": "Pacifico",
+            "color": "#ff69b4",
+            "shadow": "none",
+            "animation": "bounce"
+        },
+        {
+            "id": "t38",
+            "name": "Military Grade",
+            "font": "Black Ops One",
+            "color": "#4b5320",
+            "shadow": "1px 1px 0px #000",
+            "animation": "none"
+        },
+        {
+            "id": "t39",
+            "name": "Deep Sea",
+            "font": "Righteous",
+            "color": "#1e90ff",
+            "shadow": "0 5px 15px rgba(0,0,0,0.5)",
+            "animation": "wave"
+        },
+        {
+            "id": "t40",
+            "name": "Cloud Nine",
+            "font": "Fredoka One",
+            "color": "#fff",
+            "shadow": "0 10px 20px rgba(0,0,0,0.1)",
+            "animation": "float"
+        },
+        {
+            "id": "t41",
+            "name": "Acid Trip",
+            "font": "Fascinate",
+            "color": "#7cfc00",
+            "shadow": "5px 5px 0px #ff00ff",
+            "animation": "rotate"
+        },
+        {
+            "id": "t42",
+            "name": "Old English",
+            "font": "MedievalSharp",
+            "color": "#3d2b1f",
+            "shadow": "none",
+            "animation": "reveal"
+        },
+        {
+            "id": "t43",
+            "name": "Viking Spirit",
+            "font": "Rowdies",
+            "color": "#d2691e",
+            "shadow": "2px 2px 0px #000",
+            "animation": "shake"
+        },
+        {
+            "id": "t44",
+            "name": "Space Odyssey",
+            "font": "Michroma",
+            "color": "#fff",
+            "shadow": "0 0 30px #fff",
+            "animation": "zoom"
+        },
+        {
+            "id": "t45",
+            "name": "Handmade",
+            "font": "Indie Flower",
+            "color": "#444",
+            "shadow": "none",
+            "animation": "draw"
+        },
+        {
+            "id": "t46",
+            "name": "Glitch Master",
+            "font": "Syncopate",
+            "color": "#fff",
+            "shadow": "2px 0 red, -2px 0 blue",
+            "animation": "glitch"
+        },
+        {
+            "id": "t47",
+            "name": "Gold Plated",
+            "font": "Playfair Display SC",
+            "color": "#d4af37",
+            "shadow": "1px 1px 2px #000",
+            "animation": "shine"
+        },
+        {
+            "id": "t48",
+            "name": "Soft Pastel",
+            "font": "Varela Round",
+            "color": "#fdfd96",
+            "shadow": "none",
+            "animation": "fade"
+        },
+        {
+            "id": "t49",
+            "name": "Hard Core",
+            "font": "Titan One",
+            "color": "#ff0000",
+            "shadow": "0 0 10px #000",
+            "animation": "pop"
+        },
+        {
+            "id": "t50",
+            "name": "Zen Mode",
+            "font": "Mali",
+            "color": "#8fbc8f",
+            "shadow": "none",
+            "animation": "slow-fade"
+        }
+    ],
+    "stickers": [
+        {
+            "id": "s1",
+            "name": "Sparkle Emoji",
+            "category": "Emojis",
+            "icon": "✨"
+        },
+        {
+            "id": "s2",
+            "name": "Fire Emoji",
+            "category": "Emojis",
+            "icon": "🔥"
+        },
+        {
+            "id": "s3",
+            "name": "Heart Emoji",
+            "category": "Emojis",
+            "icon": "❤️"
+        },
+        {
+            "id": "s4",
+            "name": "Cool Sunglasses",
+            "category": "Emojis",
+            "icon": "😎"
+        },
+        {
+            "id": "s5",
+            "name": "Rocket Ship",
+            "category": "Tech",
+            "icon": "🚀"
+        },
+        {
+            "id": "s6",
+            "name": "Glowing Star",
+            "category": "Shapes",
+            "icon": "⭐"
+        },
+        {
+            "id": "s7",
+            "name": "Cloud Puff",
+            "category": "Nature",
+            "icon": "☁️"
+        },
+        {
+            "id": "s8",
+            "name": "Lighting Bolt",
+            "category": "Tech",
+            "icon": "⚡"
+        },
+        {
+            "id": "s9",
+            "name": "Party Popper",
+            "category": "Celeb",
+            "icon": "🎉"
+        },
+        {
+            "id": "s10",
+            "name": "Target Aim",
+            "category": "Shapes",
+            "icon": "🎯"
+        },
+        {
+            "id": "s11",
+            "name": "Laughing Face",
+            "category": "Emojis",
+            "icon": "😂"
+        },
+        {
+            "id": "s12",
+            "name": "Thinking Face",
+            "category": "Emojis",
+            "icon": "🤔"
+        },
+        {
+            "id": "s13",
+            "name": "Thumbs Up",
+            "category": "Emojis",
+            "icon": "👍"
+        },
+        {
+            "id": "s14",
+            "name": "Crown",
+            "category": "Fashion",
+            "icon": "👑"
+        },
+        {
+            "id": "s15",
+            "name": "Diamond",
+            "category": "Luxury",
+            "icon": "💎"
+        },
+        {
+            "id": "s16",
+            "name": "Ghost",
+            "category": "Spooky",
+            "icon": "👻"
+        },
+        {
+            "id": "s17",
+            "name": "Alien",
+            "category": "Sci-Fi",
+            "icon": "👽"
+        },
+        {
+            "id": "s18",
+            "name": "Robot",
+            "category": "Tech",
+            "icon": "🤖"
+        },
+        {
+            "id": "s19",
+            "name": "Skull",
+            "category": "Spooky",
+            "icon": "💀"
+        },
+        {
+            "id": "s20",
+            "name": "Explosion",
+            "category": "Action",
+            "icon": "💥"
+        },
+        {
+            "id": "s21",
+            "name": "Check Mark",
+            "category": "Symbols",
+            "icon": "✅"
+        },
+        {
+            "id": "s22",
+            "name": "Warning Trip",
+            "category": "Symbols",
+            "icon": "⚠️"
+        },
+        {
+            "id": "s23",
+            "name": "Question Mark",
+            "category": "Symbols",
+            "icon": "❓"
+        },
+        {
+            "id": "s24",
+            "name": "Music Note",
+            "category": "Music",
+            "icon": "🎵"
+        },
+        {
+            "id": "s25",
+            "name": "Microphone",
+            "category": "Music",
+            "icon": "🎤"
+        },
+        {
+            "id": "s26",
+            "name": "Computer",
+            "category": "Tech",
+            "icon": "💻"
+        },
+        {
+            "id": "s27",
+            "name": "Smartphone",
+            "category": "Tech",
+            "icon": "📱"
+        },
+        {
+            "id": "s28",
+            "name": "Camera",
+            "category": "Media",
+            "icon": "📷"
+        },
+        {
+            "id": "s29",
+            "name": "Movie Slate",
+            "category": "Media",
+            "icon": "🎬"
+        },
+        {
+            "id": "s30",
+            "name": "Palette",
+            "category": "Art",
+            "icon": "🎨"
+        },
+        {
+            "id": "s31",
+            "name": "Rainbow",
+            "category": "Nature",
+            "icon": "🌈"
+        },
+        {
+            "id": "s32",
+            "name": "Sun",
+            "category": "Nature",
+            "icon": "☀️"
+        },
+        {
+            "id": "s33",
+            "name": "Moon",
+            "category": "Nature",
+            "icon": "🌙"
+        },
+        {
+            "id": "s34",
+            "name": "Pizza Slice",
+            "category": "Food",
+            "icon": "🍕"
+        },
+        {
+            "id": "s35",
+            "name": "Coffee Cup",
+            "category": "Food",
+            "icon": "☕"
+        },
+        {
+            "id": "s36",
+            "name": "Ice Cream",
+            "category": "Food",
+            "icon": "🍦"
+        },
+        {
+            "id": "s37",
+            "name": "Burger",
+            "category": "Food",
+            "icon": "🍔"
+        },
+        {
+            "id": "s38",
+            "name": "Doughnut",
+            "category": "Food",
+            "icon": "🍩"
+        },
+        {
+            "id": "s39",
+            "name": "Beer Mug",
+            "category": "Food",
+            "icon": "🍺"
+        },
+        {
+            "id": "s40",
+            "name": "World Map",
+            "category": "Travel",
+            "icon": "🗺️"
+        },
+        {
+            "id": "s41",
+            "name": "Airplane",
+            "category": "Travel",
+            "icon": "✈️"
+        },
+        {
+            "id": "s42",
+            "name": "Car",
+            "category": "Travel",
+            "icon": "🚗"
+        },
+        {
+            "id": "s43",
+            "name": "Bicycle",
+            "category": "Travel",
+            "icon": "🚲"
+        },
+        {
+            "id": "s44",
+            "name": "Backpack",
+            "category": "Travel",
+            "icon": "🎒"
+        },
+        {
+            "id": "s45",
+            "name": "Mountain",
+            "category": "Nature",
+            "icon": "🏔️"
+        },
+        {
+            "id": "s46",
+            "name": "Ocean Wave",
+            "category": "Nature",
+            "icon": "🌊"
+        },
+        {
+            "id": "s47",
+            "name": "Palm Tree",
+            "category": "Nature",
+            "icon": "🌴"
+        },
+        {
+            "id": "s48",
+            "name": "Clock",
+            "category": "Time",
+            "icon": "⏰"
+        },
+        {
+            "id": "s49",
+            "name": "Money Bag",
+            "category": "Finance",
+            "icon": "💰"
+        },
+        {
+            "id": "s50",
+            "name": "Trophy",
+            "category": "Success",
+            "icon": "🏆"
+        }
+    ],
+    "transitions": [
+        {
+            "id": "tr1",
+            "name": "Crossfade",
+            "type": "fade"
+        },
+        {
+            "id": "tr2",
+            "name": "Slide Left",
+            "type": "slide"
+        },
+        {
+            "id": "tr3",
+            "name": "Slide Right",
+            "type": "slide"
+        },
+        {
+            "id": "tr4",
+            "name": "Slide Up",
+            "type": "slide"
+        },
+        {
+            "id": "tr5",
+            "name": "Slide Down",
+            "type": "slide"
+        },
+        {
+            "id": "tr6",
+            "name": "Zoom In",
+            "type": "zoom"
+        },
+        {
+            "id": "tr7",
+            "name": "Zoom Out",
+            "type": "zoom"
+        },
+        {
+            "id": "tr8",
+            "name": "Wipe Horizontal",
+            "type": "wipe"
+        },
+        {
+            "id": "tr9",
+            "name": "Wipe Vertical",
+            "type": "wipe"
+        },
+        {
+            "id": "tr10",
+            "name": "Glitch Flare",
+            "type": "glitch"
+        },
+        {
+            "id": "tr11",
+            "name": "Blur Dissolve",
+            "type": "blur"
+        },
+        {
+            "id": "tr12",
+            "name": "Pixelate",
+            "type": "pixel"
+        },
+        {
+            "id": "tr13",
+            "name": "Flip Horizontal",
+            "type": "flip"
+        },
+        {
+            "id": "tr14",
+            "name": "Flip Vertical",
+            "type": "flip"
+        },
+        {
+            "id": "tr15",
+            "name": "Rotate Clockwise",
+            "type": "rotate"
+        },
+        {
+            "id": "tr16",
+            "name": "Rotate Counter",
+            "type": "rotate"
+        },
+        {
+            "id": "tr17",
+            "name": "Mosaic",
+            "type": "mosaic"
+        },
+        {
+            "id": "tr18",
+            "name": "Spin In",
+            "type": "spin"
+        },
+        {
+            "id": "tr19",
+            "name": "Spin Out",
+            "type": "spin"
+        },
+        {
+            "id": "tr20",
+            "name": "Door Open",
+            "type": "door"
+        },
+        {
+            "id": "tr21",
+            "name": "Door Close",
+            "type": "door"
+        },
+        {
+            "id": "tr22",
+            "name": "Push Left",
+            "type": "push"
+        },
+        {
+            "id": "tr23",
+            "name": "Push Right",
+            "type": "push"
+        },
+        {
+            "id": "tr24",
+            "name": "Push Up",
+            "type": "push"
+        },
+        {
+            "id": "tr25",
+            "name": "Push Down",
+            "type": "push"
+        },
+        {
+            "id": "tr26",
+            "name": "Uncover Right",
+            "type": "uncover"
+        },
+        {
+            "id": "tr27",
+            "name": "Uncover Left",
+            "type": "uncover"
+        },
+        {
+            "id": "tr28",
+            "name": "Box In",
+            "type": "box"
+        },
+        {
+            "id": "tr29",
+            "name": "Box Out",
+            "type": "box"
+        },
+        {
+            "id": "tr30",
+            "name": "Diamond Wipe",
+            "type": "shape"
+        },
+        {
+            "id": "tr31",
+            "name": "Star Wipe",
+            "type": "shape"
+        },
+        {
+            "id": "tr32",
+            "name": "Circle Crop",
+            "type": "shape"
+        },
+        {
+            "id": "tr33",
+            "name": "Heart Wipe",
+            "type": "shape"
+        },
+        {
+            "id": "tr34",
+            "name": "Diagonal Cut",
+            "type": "cut"
+        },
+        {
+            "id": "tr35",
+            "name": "Split Horiz",
+            "type": "split"
+        },
+        {
+            "id": "tr36",
+            "name": "Split Vert",
+            "type": "split"
+        },
+        {
+            "id": "tr37",
+            "name": "Burn Through",
+            "type": "fx"
+        },
+        {
+            "id": "tr38",
+            "name": "Freeze Frame",
+            "type": "fx"
+        },
+        {
+            "id": "tr39",
+            "name": "Flash White",
+            "type": "flash"
+        },
+        {
+            "id": "tr40",
+            "name": "Flash Black",
+            "type": "flash"
+        },
+        {
+            "id": "tr41",
+            "name": "Ghosting",
+            "type": "fx"
+        },
+        {
+            "id": "tr42",
+            "name": "Mirror Split",
+            "type": "mirror"
+        },
+        {
+            "id": "tr43",
+            "name": "Kaleidoscope",
+            "type": "fx"
+        },
+        {
+            "id": "tr44",
+            "name": "Ink Splat",
+            "type": "art"
+        },
+        {
+            "id": "tr45",
+            "name": "Watercolor",
+            "type": "art"
+        },
+        {
+            "id": "tr46",
+            "name": "Vignette Fade",
+            "type": "fade"
+        },
+        {
+            "id": "tr47",
+            "name": "Noise Static",
+            "type": "glitch"
+        },
+        {
+            "id": "tr48",
+            "name": "Scanline wipe",
+            "type": "tech"
+        },
+        {
+            "id": "tr49",
+            "name": "Radar Sweep",
+            "type": "tech"
+        },
+        {
+            "id": "tr50",
+            "name": "Elastic Snap",
+            "type": "motion"
+        }
+    ],
+    "filters": [
+        {
+            "id": "f1",
+            "name": "None",
+            "filter": "none"
+        },
+        {
+            "id": "f2",
+            "name": "Grayscale pro",
+            "filter": "grayscale(100%)"
+        },
+        {
+            "id": "f3",
+            "name": "Sepia nostalgia",
+            "filter": "sepia(80%)"
+        },
+        {
+            "id": "f4",
+            "name": "Vivid color",
+            "filter": "saturate(200%)"
+        },
+        {
+            "id": "f5",
+            "name": "Dark Noir",
+            "filter": "brightness(60%) contrast(150%) grayscale(100%)"
+        },
+        {
+            "id": "f6",
+            "name": "Golden Hour",
+            "filter": "sepia(30%) brightness(110%) saturate(150%)"
+        },
+        {
+            "id": "f7",
+            "name": "Cold Ice",
+            "filter": "hue-rotate(180deg) saturate(120%)"
+        },
+        {
+            "id": "f8",
+            "name": "High Contrast",
+            "filter": "contrast(200%)"
+        },
+        {
+            "id": "f9",
+            "name": "Dreamy Blur",
+            "filter": "blur(2px) brightness(110%)"
+        },
+        {
+            "id": "f10",
+            "name": "Cinematic Teal",
+            "filter": "hue-rotate(190deg) saturate(140%) contrast(110%)"
+        },
+        {
+            "id": "f11",
+            "name": "Retro Film",
+            "filter": "sepia(50%) contrast(120%) brightness(90%)"
+        },
+        {
+            "id": "f12",
+            "name": "Acid Green",
+            "filter": "hue-rotate(90deg) saturate(300%)"
+        },
+        {
+            "id": "f13",
+            "name": "Purple Reign",
+            "filter": "hue-rotate(270deg) contrast(130%)"
+        },
+        {
+            "id": "f14",
+            "name": "Soft Glow",
+            "filter": "brightness(120%) blur(1px) opacity(0.9)"
+        },
+        {
+            "id": "f15",
+            "name": "Hard Edge",
+            "filter": "contrast(180%) brightness(110%)"
+        },
+        {
+            "id": "f16",
+            "name": "Deep Ocean",
+            "filter": "hue-rotate(210deg) brightness(80%) saturate(160%)"
+        },
+        {
+            "id": "f17",
+            "name": "Vintage 70s",
+            "filter": "sepia(40%) saturate(80%) contrast(90%)"
+        },
+        {
+            "id": "f18",
+            "name": "Modern Matte",
+            "filter": "contrast(90%) brightness(105%) saturate(70%)"
+        },
+        {
+            "id": "f19",
+            "name": "Cyber Neon",
+            "filter": "hue-rotate(300deg) saturate(400%) contrast(120%)"
+        },
+        {
+            "id": "f20",
+            "name": "Ghostly",
+            "filter": "invert(100%) grayscale(100%)"
+        },
+        {
+            "id": "f21",
+            "name": "Heat Map",
+            "filter": "hue-rotate(50deg) saturate(1000%) contrast(200%)"
+        },
+        {
+            "id": "f22",
+            "name": "Pencil Sketch",
+            "filter": "grayscale(100%) contrast(1000%) invert(100%)"
+        },
+        {
+            "id": "f23",
+            "name": "Pastel Bloom",
+            "filter": "brightness(130%) saturate(60%)"
+        },
+        {
+            "id": "f24",
+            "name": "Midnight",
+            "filter": "brightness(40%) saturate(150%) hue-rotate(240deg)"
+        },
+        {
+            "id": "f25",
+            "name": "Burning Sun",
+            "filter": "saturate(500%) brightness(110%) hue-rotate(10deg)"
+        },
+        {
+            "id": "f26",
+            "name": "Silver Screen",
+            "filter": "grayscale(100%) brightness(120%) contrast(110%)"
+        },
+        {
+            "id": "f27",
+            "name": "X-Ray",
+            "filter": "invert(100%) hue-rotate(180deg)"
+        },
+        {
+            "id": "f28",
+            "name": "Duo-Tone Red",
+            "filter": "grayscale(100%) sepia(100%) hue-rotate(-50deg) saturate(500%)"
+        },
+        {
+            "id": "f29",
+            "name": "Duo-Tone Blue",
+            "filter": "grayscale(100%) sepia(100%) hue-rotate(160deg) saturate(500%)"
+        },
+        {
+            "id": "f30",
+            "name": "Dramatic",
+            "filter": "contrast(160%) brightness(85%)"
+        },
+        {
+            "id": "f31",
+            "name": "Antique",
+            "filter": "sepia(60%) brightness(95%) contrast(105%)"
+        },
+        {
+            "id": "f32",
+            "name": "Pop Art",
+            "filter": "saturate(300%) contrast(150%) hue-rotate(45deg)"
+        },
+        {
+            "id": "f33",
+            "name": "Low-Fi",
+            "filter": "blur(0.5px) saturate(80%) brightness(110%)"
+        },
+        {
+            "id": "f34",
+            "name": "Summer Breeze",
+            "filter": "saturate(140%) brightness(105%) hue-rotate(-10deg)"
+        },
+        {
+            "id": "f35",
+            "name": "Arctic",
+            "filter": "hue-rotate(180deg) brightness(120%) contrast(110%)"
+        },
+        {
+            "id": "f36",
+            "name": "Sepia Dark",
+            "filter": "sepia(100%) brightness(70%) contrast(130%)"
+        },
+        {
+            "id": "f37",
+            "name": "Radiant",
+            "filter": "brightness(115%) contrast(110%) saturate(130%)"
+        },
+        {
+            "id": "f38",
+            "name": "Misty",
+            "filter": "blur(1.5px) opacity(0.8) brightness(110%)"
+        },
+        {
+            "id": "f39",
+            "name": "Vignette Effect",
+            "filter": "contrast(110%) brightness(95%)"
+        },
+        {
+            "id": "f40",
+            "name": "Neon Pink",
+            "filter": "hue-rotate(320deg) saturate(300%)"
+        },
+        {
+            "id": "f41",
+            "name": "Alien World",
+            "filter": "hue-rotate(120deg) saturate(200%) invert(10%)"
+        },
+        {
+            "id": "f42",
+            "name": "Bleached",
+            "filter": "saturate(20%) brightness(120%) contrast(130%)"
+        },
+        {
+            "id": "f43",
+            "name": "Copper",
+            "filter": "sepia(70%) hue-rotate(-20deg) saturate(150%)"
+        },
+        {
+            "id": "f44",
+            "name": "Emerald",
+            "filter": "hue-rotate(80deg) saturate(180%) brightness(90%)"
+        },
+        {
+            "id": "f45",
+            "name": "Candy",
+            "filter": "saturate(250%) hue-rotate(-30deg)"
+        },
+        {
+            "id": "f46",
+            "name": "Overexposed",
+            "filter": "brightness(200%) contrast(80%)"
+        },
+        {
+            "id": "f47",
+            "name": "Underexposed",
+            "filter": "brightness(50%) contrast(120%)"
+        },
+        {
+            "id": "f48",
+            "name": "Glitchy",
+            "filter": "hue-rotate(90deg) contrast(200%) blur(0.2px)"
+        },
+        {
+            "id": "f49",
+            "name": "Sepia Light",
+            "filter": "sepia(40%) brightness(110%)"
+        },
+        {
+            "id": "f50",
+            "name": "Deep Space",
+            "filter": "brightness(30%) contrast(200%) hue-rotate(260deg) saturate(200%)"
+        }
+    ],
+    "adjustments": [
+        {
+            "id": "a1",
+            "name": "Natural Sharp",
+            "values": {
+                "brightness": 100,
+                "contrast": 110,
+                "saturation": 105,
+                "sharpness": 10
+            }
+        },
+        {
+            "id": "a2",
+            "name": "Soft Portrait",
+            "values": {
+                "brightness": 105,
+                "contrast": 90,
+                "saturation": 95,
+                "warmth": 5
+            }
+        },
+        {
+            "id": "a3",
+            "name": "Vibrant landscape",
+            "values": {
+                "brightness": 110,
+                "contrast": 115,
+                "saturation": 130,
+                "exposure": 5
+            }
+        },
+        {
+            "id": "a4",
+            "name": "Punchy HDR",
+            "values": {
+                "brightness": 100,
+                "contrast": 150,
+                "saturation": 140,
+                "shadows": -10
+            }
+        },
+        {
+            "id": "a5",
+            "name": "Warm Glow",
+            "values": {
+                "brightness": 105,
+                "contrast": 100,
+                "saturation": 110,
+                "temp": 15
+            }
+        },
+        {
+            "id": "a6",
+            "name": "Cool Breeze",
+            "values": {
+                "brightness": 100,
+                "contrast": 100,
+                "saturation": 100,
+                "temp": -15
+            }
+        },
+        {
+            "id": "a7",
+            "name": "High Key",
+            "values": {
+                "brightness": 150,
+                "contrast": 80,
+                "saturation": 90,
+                "highlights": 20
+            }
+        },
+        {
+            "id": "a8",
+            "name": "Low Key",
+            "values": {
+                "brightness": 60,
+                "contrast": 130,
+                "saturation": 80,
+                "shadows": -20
+            }
+        },
+        {
+            "id": "a9",
+            "name": "Faded Look",
+            "values": {
+                "brightness": 110,
+                "contrast": 80,
+                "saturation": 70,
+                "fade": 20
+            }
+        },
+        {
+            "id": "a10",
+            "name": "Studio Light",
+            "values": {
+                "brightness": 120,
+                "contrast": 110,
+                "saturation": 100,
+                "exposure": 10
+            }
+        },
+        {
+            "id": "a11",
+            "name": "Golden Film",
+            "values": {
+                "brightness": 100,
+                "contrast": 105,
+                "saturation": 115,
+                "tint": 5,
+                "temp": 10
+            }
+        },
+        {
+            "id": "a12",
+            "name": "Matte Finish",
+            "values": {
+                "brightness": 102,
+                "contrast": 85,
+                "saturation": 85,
+                "blacks": 10
+            }
+        },
+        {
+            "id": "a13",
+            "name": "Crisp Detail",
+            "values": {
+                "brightness": 100,
+                "contrast": 120,
+                "saturation": 110,
+                "clarity": 15
+            }
+        },
+        {
+            "id": "a14",
+            "name": "De-Haze",
+            "values": {
+                "brightness": 95,
+                "contrast": 125,
+                "saturation": 105,
+                "haze": -15
+            }
+        },
+        {
+            "id": "a15",
+            "name": "Sunset Boost",
+            "values": {
+                "brightness": 105,
+                "contrast": 110,
+                "saturation": 150,
+                "temp": 20,
+                "tint": -5
+            }
+        },
+        {
+            "id": "a16",
+            "name": "Midnight Mood",
+            "values": {
+                "brightness": 70,
+                "contrast": 140,
+                "saturation": 120,
+                "temp": -10
+            }
+        },
+        {
+            "id": "a17",
+            "name": "Soft Pastel Adj",
+            "values": {
+                "brightness": 130,
+                "contrast": 70,
+                "saturation": 80,
+                "tint": 10
+            }
+        },
+        {
+            "id": "a18",
+            "name": "Urban Jungle",
+            "values": {
+                "brightness": 100,
+                "contrast": 120,
+                "saturation": 110,
+                "tint": -10
+            }
+        },
+        {
+            "id": "a19",
+            "name": "Classic Mono Adj",
+            "values": {
+                "brightness": 110,
+                "contrast": 130,
+                "saturation": 0
+            }
+        },
+        {
+            "id": "a20",
+            "name": "Rough Grain",
+            "values": {
+                "brightness": 100,
+                "contrast": 110,
+                "saturation": 100,
+                "grain": 30
+            }
+        },
+        {
+            "id": "a21",
+            "name": "Dream Soft",
+            "values": {
+                "brightness": 115,
+                "contrast": 85,
+                "saturation": 90,
+                "softness": 10
+            }
+        },
+        {
+            "id": "a22",
+            "name": "Auto Enhance",
+            "values": {
+                "brightness": 105,
+                "contrast": 105,
+                "saturation": 105,
+                "clarity": 5
+            }
+        },
+        {
+            "id": "a23",
+            "name": "Color Pop",
+            "values": {
+                "brightness": 100,
+                "contrast": 110,
+                "saturation": 160
+            }
+        },
+        {
+            "id": "a24",
+            "name": "Subtle Warmth",
+            "values": {
+                "brightness": 102,
+                "contrast": 100,
+                "saturation": 102,
+                "temp": 5
+            }
+        },
+        {
+            "id": "a25",
+            "name": "Subtle Cool",
+            "values": {
+                "brightness": 102,
+                "contrast": 100,
+                "saturation": 102,
+                "temp": -5
+            }
+        },
+        {
+            "id": "a26",
+            "name": "Dramatic Sky",
+            "values": {
+                "brightness": 90,
+                "contrast": 140,
+                "saturation": 120,
+                "highlights": -10
+            }
+        },
+        {
+            "id": "a27",
+            "name": "Shadow Lift",
+            "values": {
+                "brightness": 100,
+                "contrast": 90,
+                "saturation": 100,
+                "shadows": 30
+            }
+        },
+        {
+            "id": "a28",
+            "name": "Highlight Save",
+            "values": {
+                "brightness": 100,
+                "contrast": 100,
+                "saturation": 100,
+                "highlights": -30
+            }
+        },
+        {
+            "id": "a29",
+            "name": "Bronze Tan",
+            "values": {
+                "brightness": 100,
+                "contrast": 110,
+                "saturation": 120,
+                "temp": 12,
+                "tint": 8
+            }
+        },
+        {
+            "id": "a30",
+            "name": "Teal & Orange Adj",
+            "values": {
+                "brightness": 100,
+                "contrast": 115,
+                "saturation": 125,
+                "temp": 10,
+                "tint": -15
+            }
+        },
+        {
+            "id": "a31",
+            "name": "Retro Fade Adj",
+            "values": {
+                "brightness": 105,
+                "contrast": 90,
+                "saturation": 85,
+                "fade": 15
+            }
+        },
+        {
+            "id": "a32",
+            "name": "Cinematic Base",
+            "values": {
+                "brightness": 100,
+                "contrast": 120,
+                "saturation": 110,
+                "highlights": -5
+            }
+        },
+        {
+            "id": "a33",
+            "name": "Soft Edge Adj",
+            "values": {
+                "brightness": 110,
+                "contrast": 95,
+                "saturation": 100,
+                "vignette": 10
+            }
+        },
+        {
+            "id": "a34",
+            "name": "Bold & Bright",
+            "values": {
+                "brightness": 130,
+                "contrast": 120,
+                "saturation": 130
+            }
+        },
+        {
+            "id": "a35",
+            "name": "Dark Emo",
+            "values": {
+                "brightness": 60,
+                "contrast": 150,
+                "saturation": 50
+            }
+        },
+        {
+            "id": "a36",
+            "name": "Natural Light",
+            "values": {
+                "brightness": 115,
+                "contrast": 100,
+                "saturation": 110,
+                "exposure": 8
+            }
+        },
+        {
+            "id": "a37",
+            "name": "Flat Profile",
+            "values": {
+                "brightness": 100,
+                "contrast": 70,
+                "saturation": 80
+            }
+        },
+        {
+            "id": "a38",
+            "name": "Deep Shadows",
+            "values": {
+                "brightness": 90,
+                "contrast": 130,
+                "saturation": 110,
+                "shadows": -30
+            }
+        },
+        {
+            "id": "a39",
+            "name": "Whites Boost",
+            "values": {
+                "brightness": 105,
+                "contrast": 110,
+                "saturation": 100,
+                "whites": 20
+            }
+        },
+        {
+            "id": "a40",
+            "name": "Blacks Crush",
+            "values": {
+                "brightness": 100,
+                "contrast": 110,
+                "saturation": 100,
+                "blacks": -20
+            }
+        },
+        {
+            "id": "a41",
+            "name": "Vivid Nature",
+            "values": {
+                "brightness": 105,
+                "contrast": 110,
+                "saturation": 150,
+                "tint": -5
+            }
+        },
+        {
+            "id": "a42",
+            "name": "Skin Tone Fix",
+            "values": {
+                "brightness": 105,
+                "contrast": 95,
+                "saturation": 105,
+                "tint": 5
+            }
+        },
+        {
+            "id": "a43",
+            "name": "High Detail",
+            "values": {
+                "brightness": 100,
+                "contrast": 125,
+                "saturation": 100,
+                "clarity": 25
+            }
+        },
+        {
+            "id": "a44",
+            "name": "Soft Glow Adj",
+            "values": {
+                "brightness": 120,
+                "contrast": 90,
+                "saturation": 110,
+                "bloom": 10
+            }
+        },
+        {
+            "id": "a45",
+            "name": "Old Photo Proof",
+            "values": {
+                "brightness": 100,
+                "contrast": 95,
+                "saturation": 60,
+                "temp": 15,
+                "fade": 10
+            }
+        },
+        {
+            "id": "a46",
+            "name": "Cyber Adj",
+            "values": {
+                "brightness": 110,
+                "contrast": 130,
+                "saturation": 180,
+                "temp": -10
+            }
+        },
+        {
+            "id": "a47",
+            "name": "Cold Night",
+            "values": {
+                "brightness": 80,
+                "contrast": 120,
+                "saturation": 110,
+                "temp": -25
+            }
+        },
+        {
+            "id": "a48",
+            "name": "Morning Fog",
+            "values": {
+                "brightness": 120,
+                "contrast": 80,
+                "saturation": 90,
+                "haze": 10
+            }
+        },
+        {
+            "id": "a49",
+            "name": "Golden Hour Adj",
+            "values": {
+                "brightness": 110,
+                "contrast": 105,
+                "saturation": 140,
+                "temp": 20
+            }
+        },
+        {
+            "id": "a50",
+            "name": "Final Polish",
+            "values": {
+                "brightness": 105,
+                "contrast": 105,
+                "saturation": 110,
+                "clarity": 5,
+                "vignette": 5
+            }
+        }
+    ],
+    "audio": [
+        {
+            "id": "a1",
+            "name": "Emotional Damage",
+            "category": "Meme",
+            "duration": 2,
+            "source": "/audio/emotional-damage.mp3"
+        },
+        {
+            "id": "a2",
+            "name": "Oh No No No",
+            "category": "Meme",
+            "duration": 5,
+            "source": ""
+        },
+        {
+            "id": "a3",
+            "name": "Vine Boom",
+            "category": "Meme",
+            "duration": 1,
+            "source": "/audio/vine-boom.mp3"
+        },
+        {
+            "id": "a4",
+            "name": "Sigma Theme",
+            "category": "Meme",
+            "duration": 15,
+            "source": "/audio/sigma-theme.mp3"
+        },
+        {
+            "id": "a5",
+            "name": "Coffin Dance",
+            "category": "Meme",
+            "duration": 10
+        },
+        {
+            "id": "a6",
+            "name": "TUM HI HO - Arijit",
+            "category": "Bollywood",
+            "duration": 30
+        },
+        {
+            "id": "a7",
+            "name": "KALA CHASHMA - Badshah",
+            "category": "Bollywood",
+            "duration": 30
+        },
+        {
+            "id": "a8",
+            "name": "Kesariya Love",
+            "category": "Bollywood",
+            "duration": 30
+        },
+        {
+            "id": "a9",
+            "name": "Naatu Naatu Beat",
+            "category": "Bollywood",
+            "duration": 25
+        },
+        {
+            "id": "a10",
+            "name": "Chaiyya Chaiyya Trap",
+            "category": "Bollywood",
+            "duration": 20
+        },
+        {
+            "id": "a11",
+            "name": "Hans Zimmer Style",
+            "category": "Hollywood",
+            "duration": 40
+        },
+        {
+            "id": "a12",
+            "name": "Star Wars Theme",
+            "category": "Hollywood",
+            "duration": 35
+        },
+        {
+            "id": "a13",
+            "name": "Avengers Assemble",
+            "category": "Hollywood",
+            "duration": 20
+        },
+        {
+            "id": "a14",
+            "name": "Mission Impossible",
+            "category": "Hollywood",
+            "duration": 30
+        },
+        {
+            "id": "a15",
+            "name": "Interstellar Main",
+            "category": "Hollywood",
+            "duration": 45
+        },
+        {
+            "id": "a16",
+            "name": "Directed by Robert",
+            "category": "Meme",
+            "duration": 8
+        },
+        {
+            "id": "a17",
+            "name": "What da dog doin",
+            "category": "Meme",
+            "duration": 3
+        },
+        {
+            "id": "a18",
+            "name": "Baka Mitai",
+            "category": "Meme",
+            "duration": 12
+        },
+        {
+            "id": "a19",
+            "name": "GigaChad Theme",
+            "category": "Meme",
+            "duration": 15
+        },
+        {
+            "id": "a20",
+            "name": "Wait a minute...",
+            "category": "Meme",
+            "duration": 4
+        },
+        {
+            "id": "a21",
+            "name": "JAI HO Remix",
+            "category": "Bollywood",
+            "duration": 25
+        },
+        {
+            "id": "a22",
+            "name": "LONDON THUMAKDA",
+            "category": "Bollywood",
+            "duration": 30
+        },
+        {
+            "id": "a23",
+            "name": "DILBAR DILBAR",
+            "category": "Bollywood",
+            "duration": 30
+        },
+        {
+            "id": "a24",
+            "name": "MALHARI Energy",
+            "category": "Bollywood",
+            "duration": 20
+        },
+        {
+            "id": "a25",
+            "name": "GALTI SE MISTAKE",
+            "category": "Bollywood",
+            "duration": 15
+        },
+        {
+            "id": "a26",
+            "name": "Bond Theme 007",
+            "category": "Hollywood",
+            "duration": 30
+        },
+        {
+            "id": "a27",
+            "name": "Jurassic Park Piano",
+            "category": "Hollywood",
+            "duration": 25
+        },
+        {
+            "id": "a28",
+            "name": "Rocky Theme",
+            "category": "Hollywood",
+            "duration": 20
+        },
+        {
+            "id": "a29",
+            "name": "Harry Potter Intro",
+            "category": "Hollywood",
+            "duration": 15
+        },
+        {
+            "id": "a30",
+            "name": "Pirates Cello",
+            "category": "Hollywood",
+            "duration": 30
+        },
+        {
+            "id": "a31",
+            "name": "Sad Violin Meme",
+            "category": "Meme",
+            "duration": 10
+        },
+        {
+            "id": "a32",
+            "name": "Run Meme Audio",
+            "category": "Meme",
+            "duration": 5
+        },
+        {
+            "id": "a33",
+            "name": "Yeet Sound Effect",
+            "category": "Meme",
+            "duration": 1
+        },
+        {
+            "id": "a34",
+            "name": "Airhorn Blast",
+            "category": "Meme",
+            "duration": 2
+        },
+        {
+            "id": "a35",
+            "name": "Bruh Sound",
+            "category": "Meme",
+            "duration": 1
+        },
+        {
+            "id": "a36",
+            "name": "NA NA NA NA NA",
+            "category": "Bollywood",
+            "duration": 20
+        },
+        {
+            "id": "a37",
+            "name": "Bhole Baba Beat",
+            "category": "Bollywood",
+            "duration": 30
+        },
+        {
+            "id": "a38",
+            "name": "Pasoori Remix",
+            "category": "Bollywood",
+            "duration": 25
+        },
+        {
+            "id": "a39",
+            "name": "Manike Maghe Hit",
+            "category": "Bollywood",
+            "duration": 20
+        },
+        {
+            "id": "a40",
+            "name": "Gully Boy Rap",
+            "category": "Bollywood",
+            "duration": 30
+        },
+        {
+            "id": "a41",
+            "name": "Lord of the Rings",
+            "category": "Hollywood",
+            "duration": 40
+        },
+        {
+            "id": "a42",
+            "name": "Titanic Flute",
+            "category": "Hollywood",
+            "duration": 20
+        },
+        {
+            "id": "a43",
+            "name": "Indiana Jones",
+            "category": "Hollywood",
+            "duration": 25
+        },
+        {
+            "id": "a44",
+            "name": "The Godfather",
+            "category": "Hollywood",
+            "duration": 30
+        },
+        {
+            "id": "a45",
+            "name": "Pulp Fiction Bass",
+            "category": "Hollywood",
+            "duration": 20
+        },
+        {
+            "id": "a46",
+            "name": "Wasted GTA Sound",
+            "category": "Meme",
+            "duration": 3
+        },
+        {
+            "id": "a47",
+            "name": "Bonk!",
+            "category": "Meme",
+            "duration": 1
+        },
+        {
+            "id": "a48",
+            "name": "Hello there",
+            "category": "Meme",
+            "duration": 2
+        },
+        {
+            "id": "a49",
+            "name": "Keyboard Cat",
+            "category": "Meme",
+            "duration": 10
+        },
+        {
+            "id": "a50",
+            "name": "Nyan Cat",
+            "category": "Meme",
+            "duration": 15
+        },
+        {
+            "id": "a51",
+            "name": "Bolly Lofi Beats",
+            "category": "Bollywood",
+            "duration": 45
+        },
+        {
+            "id": "a52",
+            "name": "Desi Hip Hop",
+            "category": "Bollywood",
+            "duration": 30
+        }
+    ]
+}
