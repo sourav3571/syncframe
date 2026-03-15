@@ -85,6 +85,7 @@ interface TimelineState {
   addClip: (clip: Clip) => void;
   removeClip: (id: string) => void;
   updateClip: (id: string, updates: Partial<Clip>) => void;
+  moveClipLive: (id: string, start: number) => void;
   splitClip: (id: string, time: number) => void;
   setCurrentTime: (time: number) => void;
   setIsPlaying: (playing: boolean) => void;
@@ -159,7 +160,8 @@ export const useTimelineStore = create<TimelineState>()(
       selectedClipId: null,
       addClip: (clip) => {
         get().commitToHistory();
-        set((state) => ({ clips: [...state.clips, clip] }));
+        const safeClip = { ...clip, start: Math.max(0, clip.start) };
+        set((state) => ({ clips: [...state.clips, safeClip] }));
       },
       removeClip: (id) => {
         get().commitToHistory();
@@ -167,8 +169,17 @@ export const useTimelineStore = create<TimelineState>()(
       },
       updateClip: (id, updates) => {
         get().commitToHistory();
+        const safeUpdates = {
+          ...updates,
+          ...(updates.start !== undefined ? { start: Math.max(0, updates.start) } : {}),
+        };
         set((state) => ({
-          clips: state.clips.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+          clips: state.clips.map((c) => (c.id === id ? { ...c, ...safeUpdates } : c)),
+        }));
+      },
+      moveClipLive: (id, start) => {
+        set((state) => ({
+          clips: state.clips.map((c) => (c.id === id ? { ...c, start: Math.max(0, start) } : c)),
         }));
       },
       splitClip: (id, time) => {

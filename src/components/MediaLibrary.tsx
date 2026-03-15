@@ -321,6 +321,44 @@ export const MediaLibrary = () => {
 
                         {activeTab === 'audio' && (
                             <div className="grid grid-cols-1 gap-2">
+                                <button
+                                    onClick={async () => {
+                                        const selected = await open({
+                                            multiple: true,
+                                            filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'aac', 'ogg', 'm4a'] }]
+                                        });
+                                        if (selected) {
+                                            const paths = Array.isArray(selected) ? selected : [selected];
+                                            for (const path of paths) {
+                                                try {
+                                                    const metadata = await invoke<{ duration: number, format: string, has_audio: boolean }>('get_media_metadata', { path });
+                                                    const name = path.split(/[\\/]/).pop() || 'Untitled';
+                                                    const newId = Math.random().toString(36).substr(2, 9);
+                                                    const dur = metadata.duration || 5;
+                                                    const startPos = Math.max(0, currentTime - dur / 2);
+                                                    
+                                                    // Find available audio track
+                                                    const existingClips = useTimelineStore.getState().clips;
+                                                    const isTrack4Busy = existingClips.some(c => c.trackId === 4 && c.start < startPos + dur && c.start + c.duration > startPos);
+                                                    const trackId = isTrack4Busy ? 5 : 4;
+                                                    
+                                                    addMediaToLibrary({ id: newId, name, source: path, format: 'audio', duration: dur, lastUsed: Date.now(), hasAudio: true });
+                                                    
+                                                    addClip({
+                                                        id: newId, name, start: startPos, duration: dur, trackId, source: path, format: 'audio', hasAudio: true,
+                                                        properties: { opacity: 100, scale: 100, rotation: 0, filters: { blur: 0, brightness: 100, contrast: 100, sepia: false, grayscale: false } }
+                                                    });
+                                                    setSelectedClipId(newId);
+                                                    setCurrentTime(startPos + dur / 2);
+                                                } catch (e) { console.error(e); }
+                                            }
+                                        }
+                                    }}
+                                    className="w-full p-3 bg-accent/10 border border-accent/30 rounded-xl flex items-center justify-center gap-2 hover:bg-accent/20 hover:border-accent transition-all text-accent mb-2"
+                                >
+                                    <HardDrive size={16} />
+                                    <span className="text-[11px] font-black uppercase tracking-widest">Import Custom Audio</span>
+                                </button>
                                 {filteredAssets.audio.map(track => (
                                     <button
                                         key={track.id}

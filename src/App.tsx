@@ -27,10 +27,9 @@ const ClipRenderer = ({ clip, currentTime, isPlaying, isAudioOnly = false }: { c
     }
     
     // Cache bust identical handles to prevent browser deadlock
-    if (isAudioOnly && clip.format === 'video') {
-       return `${finalSrc}${finalSrc.includes('?') ? '&' : '?'}audioId=${clip.id}`;
-    }
-    return finalSrc;
+    // When multiple clips use the EXACT same source file simultaneously, Chromium deadlocks on the local byte stream.
+    // Appending a unique ID forces the browser to open separate stream buffered instances for each clip.
+    return `${finalSrc}${finalSrc.includes('?') ? '&' : '?'}instanceId=${clip.id}${isAudioOnly ? '_audio' : '_video'}`;
   };
 
   const source = resolveSource(clip.source || "");
@@ -65,10 +64,6 @@ const ClipRenderer = ({ clip, currentTime, isPlaying, isAudioOnly = false }: { c
     el.playbackRate = speed;
     const expectedMediaTime = (currentTime - clip.start) * speed + clipMediaOffset;
     const clampedMediaTime = Math.min(Math.max(expectedMediaTime, 0), clip.duration);
-
-    // Set muted based on audio presence or video type
-    const clipHasAudio = clip.hasAudio !== undefined ? clip.hasAudio : (clip.format === 'audio' || clip.format === 'video');
-    el.muted = !clipHasAudio;
 
     const drift = Math.abs(el.currentTime - clampedMediaTime);
     
@@ -144,6 +139,7 @@ const ClipRenderer = ({ clip, currentTime, isPlaying, isAudioOnly = false }: { c
         ref={mediaRef as any}
         src={source}
         preload="auto"
+        muted={false}
         onError={handleError}
         style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0.01 }}
       />
@@ -197,7 +193,7 @@ const ClipRenderer = ({ clip, currentTime, isPlaying, isAudioOnly = false }: { c
       src={source}
       className="w-full h-full object-contain"
       playsInline
-      muted={true}
+      muted
       preload="auto"
       onError={handleError}
       style={{ filter: clip.format === 'video' ? filterString : 'none', transformOrigin: 'center center' }}
@@ -235,7 +231,7 @@ const VisualRenderer = () => {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0, type: 'tween' }}
                 className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
-                style={{ zIndex: clip.trackId === 1 ? 100 : clip.trackId === 2 ? 90 : clip.trackId === 3 ? 80 : 70, display: 'flex', mixBlendMode: 'normal' }}
+                style={{ zIndex: clip.trackId === 1 ? 100 : clip.trackId === 2 ? 90 : clip.trackId === 3 ? 80 : 70, display: effectiveOpacity > 0 ? 'flex' : 'none', mixBlendMode: 'normal' }}
               >
               <div className="w-full h-full overflow-hidden flex items-center justify-center">
                 <ClipRenderer clip={clip} currentTime={currentTime} isPlaying={isPlaying} />
