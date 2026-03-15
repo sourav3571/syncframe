@@ -1,10 +1,17 @@
 import { useTimelineStore } from '../store/useTimelineStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sliders, Sun, Monitor, Hash, Wind, Palette, Type, Smile, Filter, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { Sliders, Monitor, Hash, Palette, Type, SlidersHorizontal, Trash2, Volume2, FastForward, Crop, Scissors, Link2, Smile } from 'lucide-react';
+import { useState } from 'react';
+import { TrimTool } from './TrimTool';
+import { MultiVideoSync } from './MultiVideoSync';
+import { MemeTemplate } from './MemeTemplate';
 
 export const PropertiesPanel = () => {
     const { selectedClipId, clips, updateClip, removeClip } = useTimelineStore();
     const selectedClip = clips.find((c) => c.id === selectedClipId);
+    const [showTrimTool, setShowTrimTool] = useState(false);
+    const [showSyncTool, setShowSyncTool] = useState(false);
+    const [showMemeTemplate, setShowMemeTemplate] = useState(false);
 
     const handlePropChange = (key: string, value: any) => {
         if (!selectedClip) return;
@@ -36,6 +43,19 @@ export const PropertiesPanel = () => {
                 ...selectedClip.properties,
                 adjustments: {
                     ...(selectedClip.properties.adjustments as any),
+                    [key]: value
+                }
+            }
+        });
+    };
+
+    const handleCropChange = (key: 'top' | 'right' | 'bottom' | 'left', value: number) => {
+        if (!selectedClip) return;
+        updateClip(selectedClip.id, {
+            properties: {
+                ...selectedClip.properties,
+                crop: {
+                    ...(selectedClip.properties.crop || { top: 0, right: 0, bottom: 0, left: 0 }),
                     [key]: value
                 }
             }
@@ -136,6 +156,86 @@ export const PropertiesPanel = () => {
                                 </div>
                             </div>
 
+                            {/* Audio Section */}
+                            {(selectedClip.format === 'video' || selectedClip.format === 'audio') && (
+                                <div className="space-y-5">
+                                    <div className="flex items-center gap-2 mb-2 font-black text-[10px] text-textDim uppercase tracking-widest">
+                                        <Volume2 size={14} className="text-textMain" /> Audio
+                                    </div>
+                                    <div className="space-y-5">
+                                        {[
+                                            { label: 'Volume', key: 'volume', min: 0, max: 200, unit: '%' },
+                                            { label: 'Fade In', key: 'fadeIn', min: 0, max: 10, unit: 's' },
+                                            { label: 'Fade Out', key: 'fadeOut', min: 0, max: 10, unit: 's' },
+                                        ].map((prop) => (
+                                            <div key={prop.key} className="space-y-2">
+                                                <div className="flex justify-between text-[10px] font-bold">
+                                                    <span className="text-textDim uppercase tracking-tighter">{prop.label}</span>
+                                                    <span className="text-accent mono">{((selectedClip.properties as any)[prop.key] !== undefined ? (selectedClip.properties as any)[prop.key] : (prop.key === 'volume' ? 100 : 0))}{prop.unit}</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min={prop.min}
+                                                    max={prop.max}
+                                                    value={((selectedClip.properties as any)[prop.key] !== undefined ? (selectedClip.properties as any)[prop.key] : (prop.key === 'volume' ? 100 : 0))}
+                                                    onChange={(e) => handlePropChange(prop.key, parseInt(e.target.value))}
+                                                    className="w-full accent-accent h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Speed & Crop Section */}
+                            {(selectedClip.format === 'video' || selectedClip.format === 'image') && (
+                                <div className="space-y-5">
+                                    <div className="flex items-center gap-2 mb-2 font-black text-[10px] text-textDim uppercase tracking-widest">
+                                        <FastForward size={14} className="text-textMain" /> Details
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-[10px] font-bold">
+                                            <span className="text-textDim uppercase tracking-tighter">Speed</span>
+                                            <span className="text-accent mono">{((selectedClip.properties as any).speed || 1).toFixed(1)}x</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0.1"
+                                            max="5"
+                                            step="0.1"
+                                            value={(selectedClip.properties as any).speed || 1}
+                                            onChange={(e) => handlePropChange('speed', parseFloat(e.target.value))}
+                                            className="w-full accent-accent h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer"
+                                            disabled={selectedClip.format === 'image'}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-3 pt-2">
+                                        <div className="flex items-center gap-2 font-black text-[10px] text-textDim uppercase tracking-widest">
+                                            <Crop size={14} className="text-textMain" /> Crop (%)
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {['top', 'bottom', 'left', 'right'].map((side) => (
+                                                <div key={side} className="space-y-1 block">
+                                                    <div className="flex justify-between text-[9px] font-bold text-textDim uppercase">
+                                                        <span>{side}</span>
+                                                        <span className="text-white">{(selectedClip.properties.crop as any)?.[side] || 0}%</span>
+                                                    </div>
+                                                    <input
+                                                        type="range"
+                                                        min="0"
+                                                        max="100"
+                                                        value={(selectedClip.properties.crop as any)?.[side] || 0}
+                                                        onChange={(e) => handleCropChange(side as any, parseInt(e.target.value))}
+                                                        className="w-full accent-accent h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Advanced Adjustments */}
                             {selectedClip.format === 'adjustment' && selectedClip.properties.adjustments && (
                                 <div className="space-y-5">
@@ -217,6 +317,33 @@ export const PropertiesPanel = () => {
                                 </div>
                             </div>
 
+                            {/* Advanced Tools Section */}
+                            {selectedClip && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2 mb-3 font-black text-[10px] text-textDim uppercase tracking-widest">
+                                        <Scissors size={14} className="text-accent" /> Advanced Tools
+                                    </div>
+                                    <button
+                                        onClick={() => setShowTrimTool(true)}
+                                        className="w-full py-3 rounded-2xl bg-accent/10 border border-accent/30 text-accent text-[10px] font-black uppercase tracking-widest hover:bg-accent/20 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Scissors size={14} /> Smooth Trim
+                                    </button>
+                                    <button
+                                        onClick={() => setShowSyncTool(true)}
+                                        className="w-full py-3 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-black uppercase tracking-widest hover:bg-blue-500/20 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Link2 size={14} /> Multi-Video Sync
+                                    </button>
+                                    <button
+                                        onClick={() => setShowMemeTemplate(true)}
+                                        className="w-full py-3 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-400 text-[10px] font-black uppercase tracking-widest hover:bg-purple-500/20 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Smile size={14} /> Meme Template
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Footer Actions */}
                             <div className="pt-8">
                                 <button
@@ -230,6 +357,29 @@ export const PropertiesPanel = () => {
                     )}
                 </AnimatePresence>
             </div>
+
+            {/* Modals */}
+            <AnimatePresence>
+                {showTrimTool && selectedClip && (
+                    <TrimTool
+                        clipId={selectedClip.id}
+                        duration={selectedClip.duration}
+                        onClose={() => setShowTrimTool(false)}
+                    />
+                )}
+                {showSyncTool && (
+                    <MultiVideoSync
+                        selectedClipIds={selectedClipId ? [selectedClipId] : []}
+                        onClose={() => setShowSyncTool(false)}
+                    />
+                )}
+                {showMemeTemplate && (
+                    <MemeTemplate
+                        selectedClipIds={selectedClipId ? [selectedClipId] : []}
+                        onClose={() => setShowMemeTemplate(false)}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 };

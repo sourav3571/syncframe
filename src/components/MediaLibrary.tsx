@@ -9,6 +9,7 @@ import assetsData from '../assets/assets.json';
 export const MediaLibrary = () => {
     const [activeTab, setActiveTab] = useState('media');
     const [searchQuery, setSearchQuery] = useState('');
+    const [targetTrack, setTargetTrack] = useState<1|2|3|4|5>(1);
     const { addClip, currentTime, setCurrentTime, setSelectedClipId, mediaLibrary, addMediaToLibrary } = useTimelineStore();
 
     const tabs = [
@@ -46,28 +47,19 @@ export const MediaLibrary = () => {
 
             if (selected) {
                 const paths = Array.isArray(selected) ? selected : [selected];
-                const existingClips = useTimelineStore.getState().clips;
 
                 for (const path of paths) {
                     try {
-                        const metadata = await invoke<{ duration: number, format: string }>('get_media_metadata', { path });
+                        const metadata = await invoke<{ duration: number, format: string, has_audio: boolean }>('get_media_metadata', { path });
                         const name = path.split(/[\\/]/).pop() || 'Untitled';
                         const newId = Math.random().toString(36).substr(2, 9);
                         const dur = metadata.duration || 10;
                         const startPos = Math.max(0, currentTime - dur / 2);
                         const format = metadata.format as 'video' | 'audio' | 'image';
+                        const hasAudio = metadata.has_audio;
 
-                        // Find best track (1-3 for visual, 4-5 for audio)
-                        let trackId = format === 'audio' ? 4 : 1;
-                        if (format === 'audio') {
-                            const isTrack4Busy = existingClips.some(c => c.trackId === 4 && c.start < startPos + dur && c.start + c.duration > startPos);
-                            if (isTrack4Busy) trackId = 5;
-                        } else {
-                            const isTrack1Busy = existingClips.some(c => c.trackId === 1 && c.start < startPos + dur && c.start + c.duration > startPos);
-                            const isTrack2Busy = existingClips.some(c => c.trackId === 2 && c.start < startPos + dur && c.start + c.duration > startPos);
-                            if (isTrack1Busy && !isTrack2Busy) trackId = 2;
-                            else if (isTrack1Busy && isTrack2Busy) trackId = 3;
-                        }
+                        // Use chosen targetTrack for video/image; keep audio in 4/5 by default, but select preferred audio if chosen.
+                        let trackId = format === 'audio' ? (targetTrack === 5 ? 5 : 4) : targetTrack;
 
                         // Add to library for persistence
                         addMediaToLibrary({
@@ -76,7 +68,8 @@ export const MediaLibrary = () => {
                             source: path,
                             format,
                             duration: dur,
-                            lastUsed: Date.now()
+                            lastUsed: Date.now(),
+                            hasAudio
                         });
 
                         // Also add to timeline
@@ -88,6 +81,7 @@ export const MediaLibrary = () => {
                             trackId,
                             source: path,
                             format,
+                            hasAudio,
                             properties: {
                                 opacity: 100,
                                 scale: 100,
@@ -106,18 +100,9 @@ export const MediaLibrary = () => {
     const handleAddFromLibrary = (asset: any) => {
         const id = Math.random().toString(36).substr(2, 9);
         const startPos = Math.max(0, currentTime - asset.duration / 2);
-        const existingClips = useTimelineStore.getState().clips;
 
-        let trackId = asset.format === 'audio' ? 4 : 1;
-        if (asset.format === 'audio') {
-            const isTrack4Busy = existingClips.some(c => c.trackId === 4 && c.start < startPos + asset.duration && c.start + c.duration > startPos);
-            if (isTrack4Busy) trackId = 5;
-        } else {
-            const isTrack1Busy = existingClips.some(c => c.trackId === 1 && c.start < startPos + asset.duration && c.start + c.duration > startPos);
-            const isTrack2Busy = existingClips.some(c => c.trackId === 2 && c.start < startPos + asset.duration && c.start + c.duration > startPos);
-            if (isTrack1Busy && !isTrack2Busy) trackId = 2;
-            else if (isTrack1Busy && isTrack2Busy) trackId = 3;
-        }
+        // Respect selected track from UI when loading from library.
+        let trackId = asset.format === 'audio' ? (targetTrack === 5 ? 5 : 4) : targetTrack;
 
         addClip({
             id,
@@ -127,6 +112,7 @@ export const MediaLibrary = () => {
             trackId,
             source: asset.source,
             format: asset.format,
+            hasAudio: asset.hasAudio,
             properties: {
                 opacity: 100,
                 scale: 100,
@@ -251,6 +237,22 @@ export const MediaLibrary = () => {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full bg-surface border border-border rounded-xl py-2 pl-9 pr-4 text-xs focus:border-accent outline-none"
                     />
+                </div>
+
+                <div className="mb-4 flex items-center gap-2 text-[10px] font-bold text-textDim">
+                    <label htmlFor="trackSelect" className="uppercase">Target track:</label>
+                    <select
+                        id="trackSelect"
+                        value={targetTrack}
+                        onChange={(e) => setTargetTrack(Number(e.target.value) as 1|2|3|4|5)}
+                        className="bg-surface border border-border rounded-lg p-1 text-[10px] outline-none"
+                    >
+                        <option value={1}>Video 1</option>
+                        <option value={2}>Video 2</option>
+                        <option value={3}>Video 3</option>
+                        <option value={4}>Audio 1</option>
+                        <option value={5}>Audio 2</option>
+                    </select>
                 </div>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 -mr-2">

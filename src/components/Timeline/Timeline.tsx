@@ -4,10 +4,36 @@ import { useTimelineStore } from '../../store/useTimelineStore';
 import { Scissors, MousePointer2, ZoomIn, ZoomOut, Clock, Trash2, Eye, Volume2, Music } from 'lucide-react';
 
 export const Timeline = () => {
-    const { tracks, clips, currentTime, zoom, selectedClipId, setCurrentTime, setSelectedClipId, setZoom, splitClip, removeClip, updateClip } = useTimelineStore();
+    const { tracks, clips, mediaLibrary, currentTime, zoom, selectedClipId, setCurrentTime, setSelectedClipId, setZoom, splitClip, removeClip, updateClip } = useTimelineStore();
     const timelineRef = useRef<HTMLDivElement>(null);
     const sidebarRef = useRef<HTMLDivElement>(null);
     const [mode, setMode] = React.useState<'select' | 'split'>('select');
+    const [isLineDragging, setIsLineDragging] = React.useState(false);
+    const [isAutoScrollEnabled, setIsAutoScrollEnabled] = React.useState(true);
+
+    React.useEffect(() => {
+        if (!isLineDragging || !timelineRef.current) return;
+
+        const onMouseMove = (event: MouseEvent) => {
+            const rect = timelineRef.current!.getBoundingClientRect();
+            let x = event.clientX - rect.left;
+            x = Math.max(0, Math.min(x, rect.width));
+            setCurrentTime(x / zoom);
+        };
+
+        const onMouseUp = () => {
+            setIsLineDragging(false);
+            setTimeout(() => setIsAutoScrollEnabled(true), 150);
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+    }, [isLineDragging, zoom, setCurrentTime]);
 
     const handleTimelineClick = (e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest('.clip-item')) {
@@ -45,10 +71,12 @@ export const Timeline = () => {
 
     React.useEffect(() => {
         const el = timelineRef.current;
-        if (!el) return;
+        if (!el || isLineDragging || !isAutoScrollEnabled) return;
+
         const centerX = currentTime * zoom - el.clientWidth / 2;
-        el.scrollTo({ left: Math.max(0, centerX), behavior: 'smooth' });
-    }, [currentTime, zoom]);
+        // Use immediate scrolling to keep playback cursor responsiveness high.
+        el.scrollTo({ left: Math.max(0, centerX), behavior: 'auto' });
+    }, [currentTime, zoom, isLineDragging, isAutoScrollEnabled]);
 
     return (
         <div className="flex flex-col h-full bg-background border-t border-border select-none">
@@ -139,10 +167,11 @@ export const Timeline = () => {
 
                     <div className="relative pt-0">
                         <motion.div
-                            className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-40 pointer-events-none shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+                            className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-40 shadow-[0_0_15px_rgba(239,68,68,0.5)] cursor-ew-resize"
+                            onMouseDown={(e) => { e.stopPropagation(); setIsLineDragging(true); setIsAutoScrollEnabled(false); }}
                             animate={{ x: currentTime * zoom }}
                             transition={{ type: "spring", bounce: 0, duration: 0.1 }}
-                            style={{ height: tracks.length * 64 + 40 }}
+                            style={{ height: tracks.length * 64 + 40, pointerEvents: isLineDragging ? 'auto' : 'auto' }}
                         >
                             <div className="w-4 h-5 bg-red-500 absolute -top-1 -left-[7px] [clip-path:polygon(0%_0%,100%_0%,100%_70%,50%_100%,0%_70%)]" />
                         </motion.div>
@@ -193,12 +222,52 @@ export const Timeline = () => {
                                             dragMomentum={false}
                                             onDragEnd={(e, info) => {
                                                 e.stopPropagation();
+                                                const offsetTime = info.offset.x / zoom;
+                                                const newStart = Math.max(0, clip.start + offsetTime);
+                                                const timeDiff = newStart - clip.start;
+                                                const currentMediaOffset = clip.mediaOffset || 0;
+                                                
+                                                // Prevent negative media offset (trimming before start of video)
+                                                if (currentMediaOffset + timeDiff < 0) return;
+                                                
+                                                // Prevent trimming beyond the end of the video from the left
+                                                const newDuration = Math.max(0.5, clip.duration - timeDiff);
+                                                
+                                                updateClip(clip.id, {
+                                                    start: newStart,
+                                                    duration: newDuration,
+                                                    mediaOffset: currentMediaOffset + timeDiff
+                                                });
+                                            }}
+                                            className="absolute left-0 top-0 bottom-0 w-4 bg-black/20 hover:bg-white/40 cursor-ew-resize z-20 flex items-center justify-center border-r border-white/20"
+                                            title="Trim Left Edge"
+                                        >
+                                            <div className="w-[2px] h-4 bg-white/60 rounded-full shrink-0" />
+                                        </motion.div>
+                                        <motion.div
+                                            drag="x"
+                                            dragMomentum={false}
+                                            onDragEnd={(e, info) => {
+                                                e.stopPropagation();
                                                 const newWidthPx = clip.duration * zoom + info.offset.x;
-                                                const newDuration = Math.max(0.5, newWidthPx / zoom);
+                                                let newDuration = Math.max(0.5, newWidthPx / zoom);
+                                                
+                                                // Bound right edge by source media duration
+                                                const sourceMedia = mediaLibrary.find(m => m.source === clip.source);
+                                                if (sourceMedia) {
+                                                    const maxDuration = sourceMedia.duration - (clip.mediaOffset || 0);
+                                                    if (newDuration > maxDuration) {
+                                                        newDuration = maxDuration;
+                                                    }
+                                                }
+                                                
                                                 updateClip(clip.id, { duration: newDuration });
                                             }}
-                                            className="absolute right-1 bottom-1 w-3 h-6 rounded-md bg-white/10 hover:bg-white/30 cursor-ew-resize"
-                                        />
+                                            className="absolute right-0 top-0 bottom-0 w-4 bg-black/20 hover:bg-white/40 cursor-ew-resize z-20 flex items-center justify-center border-l border-white/20"
+                                            title="Trim Right Edge"
+                                        >
+                                            <div className="w-[2px] h-4 bg-white/60 rounded-full shrink-0" />
+                                        </motion.div>
                                     </motion.div>
                                 ))}
                             </div>

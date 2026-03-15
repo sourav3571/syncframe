@@ -1,12 +1,14 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { save as saveDialog, open } from '@tauri-apps/plugin-dialog';
 import { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { HardwareStatus } from "./components/HardwareStatus";
 import { Timeline } from "./components/Timeline/Timeline";
 import { MediaLibrary } from "./components/MediaLibrary";
 import { PropertiesPanel } from "./components/PropertiesPanel";
+import { SmartRender } from "./components/SmartRender";
 import { useTimelineStore } from "./store/useTimelineStore";
-import { Video, Share, Settings, Play, FastForward, Rewind, Maximize2, Layers } from "lucide-react";
+import { Video, Share, Settings, Play, FastForward, Rewind, Maximize2, Layers, X } from "lucide-react";
 
 // Dedicated renderer for timeline clips to handle synchronization without lag
 const ClipRenderer = ({ clip, currentTime, isPlaying, isAudioOnly = false }: { clip: any, currentTime: number, isPlaying: boolean, isAudioOnly?: boolean }) => {
@@ -15,11 +17,20 @@ const ClipRenderer = ({ clip, currentTime, isPlaying, isAudioOnly = false }: { c
   // Robust source resolution
   const resolveSource = (src: string) => {
     if (!src) return "";
-    if (src.startsWith('http') || src.startsWith('asset:') || src.startsWith('data:')) return src;
-    if (src.startsWith('/')) {
-      return new URL(src, window.location.origin).href;
+    let finalSrc = src;
+    if (src.startsWith('http') || src.startsWith('asset:') || src.startsWith('data:')) {
+      finalSrc = src;
+    } else if (src.startsWith('/')) {
+      finalSrc = new URL(src, window.location.origin).href;
+    } else {
+      finalSrc = convertFileSrc(src);
     }
-    return convertFileSrc(src);
+    
+    // Cache bust identical handles to prevent browser deadlock
+    if (isAudioOnly && clip.format === 'video') {
+       return `${finalSrc}${finalSrc.includes('?') ? '&' : '?'}audioId=${clip.id}`;
+    }
+    return finalSrc;
   };
 
   const source = resolveSource(clip.source || "");
@@ -48,60 +59,76 @@ const ClipRenderer = ({ clip, currentTime, isPlaying, isAudioOnly = false }: { c
     const el = mediaRef.current;
     if (!el) return;
 
-    // Aggressive Play/Pause Sync
-    const syncPlayback = async () => {
+    // Sync time offset for all clips so overlapping clips stay aligned by relative timeline.
+    const clipMediaOffset = clip.mediaOffset || 0;
+    const speed = clip.properties?.speed || 1;
+    el.playbackRate = speed;
+    const expectedMediaTime = (currentTime - clip.start) * speed + clipMediaOffset;
+    const clampedMediaTime = Math.min(Math.max(expectedMediaTime, 0), clip.duration);
+
+    // Set muted based on audio presence or video type
+    const clipHasAudio = clip.hasAudio !== undefined ? clip.hasAudio : (clip.format === 'audio' || clip.format === 'video');
+    el.muted = !clipHasAudio;
+
+    const drift = Math.abs(el.currentTime - clampedMediaTime);
+    
+    // When playing, use 0.4s to prevent constant stuttering ("stopping in between"). When scrubbing (paused), keep it tight.
+    const threshold = isPlaying ? 0.4 : 0.05;
+
+    let targetTimeSet = false;
+    if (drift > threshold) {
       try {
-        if (isPlaying && isActive) {
-          if (el.paused) {
-            console.info(`[ClipSync] Attempting play: ${clip.name}`);
-            el.muted = false;
-            await el.play();
-          }
-        } else {
-          if (!el.paused) {
-            console.info(`[ClipSync] Pausing: ${clip.name}`);
-            el.pause();
-          }
-        }
-      } catch (err: any) {
-        const msg = `Autoplay Blocked [${clip.name}]: ${err.message}`;
-        console.warn(msg);
-        if (isActive && isPlaying) {
-          (window as any).__syncframe_errors = (window as any).__syncframe_errors || [];
-          if (!(window as any).__syncframe_errors.includes(msg)) {
-            (window as any).__syncframe_errors.push(msg);
-            window.dispatchEvent(new CustomEvent('syncframe-error'));
-          }
-        }
-      }
-    };
-
-    syncPlayback();
-  }, [isPlaying, isActive, clip.name]);
-
-  useEffect(() => {
-    const el = mediaRef.current;
-    if (!el || !isActive) return;
-
-    // Sync time offset (only if drift is significant)
-    const expectedOffset = currentTime - clip.start;
-    const drift = Math.abs(el.currentTime - expectedOffset);
-    // Relaxed threshold to reduce jitter (0.4s)
-    if (drift > 0.4) {
-      try {
-        el.currentTime = Math.max(0, expectedOffset);
+        el.currentTime = clampedMediaTime;
+        targetTimeSet = true;
       } catch (e) {
         // Ignore if element is not ready to set currentTime
       }
     }
-  }, [currentTime, clip.start, isActive]);
+
+    if (isActive) {
+       if (isPlaying && el.paused) {
+           // Provide a slight debounce and only play if we are fairly close to our target time
+           if (!targetTimeSet || drift <= threshold) {
+              el.play().catch(e => {
+                  const msg = `Autoplay Blocked [${clip.name}]: ${e.message}`;
+                  console.warn(msg);
+                  (window as any).__syncframe_errors = (window as any).__syncframe_errors || [];
+                  if (!(window as any).__syncframe_errors.includes(msg)) {
+                    (window as any).__syncframe_errors.push(msg);
+                    window.dispatchEvent(new CustomEvent('syncframe-error'));
+                  }
+              });
+           }
+       } else if (!isPlaying && !el.paused) {
+           el.pause();
+       }
+    } else if (!el.paused) {
+        el.pause();
+    }
+  }, [currentTime, clip.start, clip.duration, clip.mediaOffset, clip.properties?.speed, isPlaying, isActive, clip.hasAudio, clip.format, clip.name]);
 
   useEffect(() => {
     const el = mediaRef.current;
     if (!el) return;
-    const targetVolume = isActive ? (clip.properties?.opacity || 100) / 100 : 0;
-    el.volume = Math.min(1, Math.max(0, targetVolume));
-  }, [clip.properties?.opacity, isActive]);
+
+    let targetVolume = isActive ? ((clip.properties?.volume !== undefined ? clip.properties.volume : 100) / 100) : 0;
+
+    if (isActive) {
+      const elapsed = currentTime - clip.start;
+      const remaining = clip.duration - elapsed;
+      const fadeIn = clip.properties?.fadeIn || 0;
+      const fadeOut = clip.properties?.fadeOut || 0;
+
+      if (fadeIn > 0 && elapsed < fadeIn) {
+        targetVolume *= (elapsed / fadeIn);
+      } else if (fadeOut > 0 && remaining < fadeOut) {
+        targetVolume *= (remaining / fadeOut);
+      }
+    }
+
+    const finalVolume = (clip.format === 'audio' || clip.format === 'video') ? targetVolume : (isActive ? (clip.properties?.opacity || 100) / 100 : 0);
+    el.volume = Math.min(1, Math.max(0, finalVolume));
+  }, [clip.properties?.volume, clip.properties?.opacity, clip.properties?.fadeIn, clip.properties?.fadeOut, isActive, currentTime, clip.start, clip.duration, clip.format]);
 
   const handleError = (e: any) => {
     const errorMsg = `Media Error [${clip.name}]: ${e.target.error?.message || 'Unknown error'}`;
@@ -117,7 +144,6 @@ const ClipRenderer = ({ clip, currentTime, isPlaying, isAudioOnly = false }: { c
         ref={mediaRef as any}
         src={source}
         preload="auto"
-        crossOrigin="anonymous"
         onError={handleError}
         style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0.01 }}
       />
@@ -153,7 +179,7 @@ const ClipRenderer = ({ clip, currentTime, isPlaying, isAudioOnly = false }: { c
   }
 
   if (clip.format === 'image') {
-    return <img src={source} className="w-full h-full object-contain shadow-2xl" alt={clip.name} />;
+    return <img src={source} className="w-full h-full object-cover shadow-2xl" alt={clip.name} />;
   }
 
   if (clip.format === 'filter' || clip.format === 'adjustment') {
@@ -171,11 +197,10 @@ const ClipRenderer = ({ clip, currentTime, isPlaying, isAudioOnly = false }: { c
       src={source}
       className="w-full h-full object-contain"
       playsInline
-      muted={false}
+      muted={true}
       preload="auto"
-      crossOrigin="anonymous"
       onError={handleError}
-      style={{ filter: clip.format === 'video' ? filterString : 'none' }}
+      style={{ filter: clip.format === 'video' ? filterString : 'none', transformOrigin: 'center center' }}
     />
   );
 };
@@ -190,26 +215,35 @@ const VisualRenderer = () => {
 
   return (
     <AnimatePresence mode="popLayout">
-      {clips
-        .filter(c => c.format !== 'audio' && currentTime >= c.start && currentTime < c.start + c.duration)
-        .sort((a, b) => a.trackId - b.trackId)
-        .map((clip) => (
-          <motion.div
-            key={clip.id}
-            initial={{ opacity: 0 }}
-            animate={{
-              opacity: clip.properties.opacity / 100,
-              scale: clip.properties.scale / 100,
-              rotate: clip.properties.rotation,
-            }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            style={{ zIndex: 10 - clip.trackId }}
-          >
-            <ClipRenderer clip={clip} currentTime={currentTime} isPlaying={isPlaying} />
-          </motion.div>
-        ))
-      }
+      {(() => {
+        return clips
+          .filter(c => c.format !== 'audio')
+          .sort((a, b) => a.trackId - b.trackId)
+          .map((clip) => {
+            const isActive = currentTime >= clip.start && currentTime < clip.start + clip.duration;
+            const effectiveOpacity = isActive ? ((clip.properties.opacity || 100) / 100) : 0;
+            return (
+              <motion.div
+                key={clip.id}
+                initial={false}
+                animate={{
+                  opacity: effectiveOpacity,
+                  scale: clip.properties.scale / 100,
+                  rotate: clip.properties.rotation,
+                  clipPath: clip.properties.crop ? `inset(${clip.properties.crop.top || 0}% ${clip.properties.crop.right || 0}% ${clip.properties.crop.bottom || 0}% ${clip.properties.crop.left || 0}%)` : 'none'
+                }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0, type: 'tween' }}
+                className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
+                style={{ zIndex: clip.trackId === 1 ? 100 : clip.trackId === 2 ? 90 : clip.trackId === 3 ? 80 : 70, display: 'flex', mixBlendMode: 'normal' }}
+              >
+              <div className="w-full h-full overflow-hidden flex items-center justify-center">
+                <ClipRenderer clip={clip} currentTime={currentTime} isPlaying={isPlaying} />
+              </div>
+            </motion.div>
+          );
+        });
+      })()}
 
       {(() => {
         const hasActiveVisualClips = clips.some(c => c.format !== 'audio' && currentTime >= c.start && currentTime < c.start + c.duration);
@@ -272,9 +306,9 @@ const AudioEngine = () => {
         onPlay={() => console.info("[SystemEngine] Heartbeat started")}
       />
       {clips
-        .filter(c => c.format === 'audio')
+        .filter(c => c.format === 'audio' || (c.format === 'video' && c.hasAudio !== false))
         .map(clip => (
-          <ClipRenderer key={clip.id} clip={clip} currentTime={currentTime} isPlaying={isPlaying} isAudioOnly />
+          <ClipRenderer key={`audio-${clip.id}`} clip={clip} currentTime={currentTime} isPlaying={isPlaying} isAudioOnly />
         ))
       }
     </div>
@@ -286,8 +320,17 @@ const AudioEngine = () => {
 
 function App() {
   const isPlaying = useTimelineStore(s => s.isPlaying);
+  const currentTime = useTimelineStore(s => s.currentTime);
+  const setCurrentTime = useTimelineStore(s => s.setCurrentTime);
+  const clips = useTimelineStore(s => s.clips);
   const setIsPlaying = useTimelineStore(s => s.setIsPlaying);
   const initializeTracks = useTimelineStore(s => s.initializeTracks);
+
+  const jumpSeconds = (delta: number) => {
+    const totalDuration = clips.length > 0 ? Math.max(...clips.map((c) => c.start + c.duration)) : 0;
+    const nextTime = Math.max(0, Math.min(totalDuration, currentTime + delta));
+    setCurrentTime(nextTime);
+  };
 
   const [errorLog, setErrorLog] = useState<string[]>([]);
   const [isErrorPanelExpanded, setIsErrorPanelExpanded] = useState(false);
@@ -297,6 +340,43 @@ function App() {
   const [leftPanelWidth, setLeftPanelWidth] = useState(320);
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
   const [primed, setPrimed] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isSmartRenderOpen, setIsSmartRenderOpen] = useState(false);
+  const [exportSettings, setExportSettings] = useState({ resolution: '1920x1080', fps: 30, encoder: 'libx264' });
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'z') {
+        useTimelineStore.getState().undo();
+      } else if (e.ctrlKey && e.key === 'y') {
+        useTimelineStore.getState().redo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    invoke('detect_system_capabilities').then((caps: any) => {
+      setExportSettings(s => ({ ...s, encoder: caps.recommended_encoder || 'libx264' }));
+    }).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger spacebar play/pause if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlaying, primed]);
 
   useEffect(() => {
     const updateLogs = () => {
@@ -317,9 +397,15 @@ function App() {
 
   const requestRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
+  const currentPlaybackTimeRef = useRef<number>(0);
   const isDraggingRef = useRef<'timeline' | 'left' | 'right' | null>(null);
 
   useEffect(() => {
+    // Keep local reference in sync with manual seeking updates while paused.
+    if (!isPlaying) {
+      currentPlaybackTimeRef.current = currentTime;
+    }
+
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDraggingRef.current) return;
 
@@ -357,7 +443,11 @@ function App() {
   const animate = (time: number) => {
     if (lastTimeRef.current !== null) {
       const deltaTime = (time - lastTimeRef.current) / 1000;
-      useTimelineStore.getState().setCurrentTime(useTimelineStore.getState().currentTime + deltaTime);
+      currentPlaybackTimeRef.current += deltaTime;
+
+      // Avoid writing to the state every frame with tiny changes when not necessary.
+      // This smooths slow motion / jitter when frames skip on heavy rendering.
+      useTimelineStore.getState().setCurrentTime(currentPlaybackTimeRef.current);
     }
     lastTimeRef.current = time;
     requestRef.current = requestAnimationFrame(animate);
@@ -365,10 +455,14 @@ function App() {
 
   useEffect(() => {
     if (isPlaying) {
+      // If playback started, prime local clock with latest timeline position for smooth continuous updates
+      currentPlaybackTimeRef.current = useTimelineStore.getState().currentTime;
       lastTimeRef.current = performance.now();
       requestRef.current = requestAnimationFrame(animate);
     } else {
       if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
+      // keep local time in sync when paused
+      currentPlaybackTimeRef.current = useTimelineStore.getState().currentTime;
     }
     return () => {
       if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
@@ -386,7 +480,12 @@ function App() {
     setIsPlaying(!isPlaying);
   };
 
-  const handleExport = async () => {
+  const handleExportClick = () => {
+    setIsExportModalOpen(true);
+  };
+
+  const handleExportSubmit = async () => {
+    setIsExportModalOpen(false);
     setIsExporting(true);
     try {
       const state = useTimelineStore.getState();
@@ -396,7 +495,17 @@ function App() {
         start: c.start,
         duration: c.duration,
         track_type: c.trackId <= 3 ? "video" : "audio",
-        track_id: c.trackId
+        track_id: c.trackId,
+        media_offset: c.mediaOffset || 0,
+        volume: c.properties?.volume !== undefined ? c.properties.volume / 100.0 : 1.0,
+        fade_in: c.properties?.fadeIn || 0,
+        fade_out: c.properties?.fadeOut || 0,
+        speed: c.properties?.speed || 1.0,
+        crop_t: c.properties?.crop?.top || 0,
+        crop_b: c.properties?.crop?.bottom || 0,
+        crop_l: c.properties?.crop?.left || 0,
+        crop_r: c.properties?.crop?.right || 0,
+        has_audio: c.hasAudio !== undefined ? c.hasAudio : (c.format === 'video' || c.format === 'audio')
       })).filter(c => c.source !== "");
 
       if (renderClips.length === 0) {
@@ -405,7 +514,9 @@ function App() {
 
       await invoke('start_render', {
         outputPath: 'output.mp4',
-        encoder: 'libx264',
+        encoder: exportSettings.encoder,
+        resolution: exportSettings.resolution,
+        fps: exportSettings.fps,
         clips: renderClips
       });
       alert('Render started! Monitor your output folder.');
@@ -414,6 +525,48 @@ function App() {
       alert('Render failed: ' + e);
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleSaveProject = async () => {
+    try {
+      const path = await saveDialog({
+        filters: [{
+          name: 'SyncFrame Project',
+          extensions: ['syncframe']
+        }]
+      });
+      if (!path) return;
+      const state = useTimelineStore.getState();
+      const stateData = JSON.stringify({ clips: state.clips, mediaLibrary: state.mediaLibrary });
+      await invoke('save_project', { path, data: stateData });
+      alert('Project saved successfully!');
+    } catch (e) { console.error(e); }
+  };
+
+  const handleLoadProject = async () => {
+    try {
+      const selected: string | string[] | null = await open({
+        multiple: false,
+        filters: [{
+          name: 'SyncFrame Project',
+          extensions: ['syncframe']
+        }]
+      });
+      if (!selected) return;
+      const path = Array.isArray(selected) ? selected[0] : selected;
+      const data: string = await invoke('load_project', { path });
+      const parsed = JSON.parse(data);
+      useTimelineStore.setState({
+        clips: parsed.clips || [],
+        mediaLibrary: parsed.mediaLibrary || [],
+        pastClips: [],
+        futureClips: []
+      });
+      alert('Project loaded successfully!');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to load project: ' + e);
     }
   };
 
@@ -461,6 +614,23 @@ function App() {
         <HardwareStatus />
 
         <div className="flex items-center gap-4">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleSaveProject}
+            className="text-textDim hover:text-white text-[10px] font-bold uppercase tracking-widest transition-colors"
+          >
+            Save
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleLoadProject}
+            className="text-textDim hover:text-white text-[10px] font-bold uppercase tracking-widest transition-colors"
+          >
+            Load
+          </motion.button>
+
           {/* Integrated System Engine Button */}
           <div className="relative">
             <motion.button
@@ -528,9 +698,19 @@ function App() {
             <Settings size={20} />
           </motion.button>
           <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setIsSmartRenderOpen(true)}
+            className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border border-blue-400/30 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 relative overflow-hidden group hover:shadow-lg hover:shadow-blue-500/40"
+            title="Smart Export with AI Optimization"
+          >
+            <span className="text-sm">✨</span>
+            <span>Smart Export</span>
+          </motion.button>
+          <motion.button
             whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(255, 255, 255, 0.4)" }}
             whileTap={{ scale: 0.98 }}
-            onClick={handleExport}
+            onClick={handleExportClick}
             className="bg-surfaceHighlight text-textMain border border-white/10 px-8 py-2.5 rounded-full text-xs font-black uppercase tracking-widest shadow-lg shadow-black/50 transition-all flex items-center gap-2 relative overflow-hidden group hover:bg-accent hover:text-background"
           >
             {isExporting ? <span className="animate-spin">⏳</span> : <Share size={14} className="z-10" />}
@@ -538,6 +718,71 @@ function App() {
           </motion.button>
         </div>
       </header>
+
+      <AnimatePresence>
+        {isSmartRenderOpen && (
+          <SmartRender onClose={() => setIsSmartRenderOpen(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isExportModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-surface border border-white/10 rounded-2xl w-[400px] p-6 shadow-2xl relative"
+            >
+              <button onClick={() => setIsExportModalOpen(false)} className="absolute top-4 right-4 text-textDim hover:text-white"><X size={20} /></button>
+              <h2 className="text-lg font-black uppercase tracking-widest mb-6 text-white text-center">Export Settings</h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-textDim uppercase tracking-widest mb-2">Resolution</label>
+                  <select
+                    value={exportSettings.resolution}
+                    onChange={e => setExportSettings(s => ({ ...s, resolution: e.target.value }))}
+                    className="w-full bg-background border border-white/10 rounded-lg p-3 text-sm focus:border-accent outline-none"
+                  >
+                    <option value="1280x720">720p (HD)</option>
+                    <option value="1920x1080">1080p (FHD)</option>
+                    <option value="3840x2160">4K (UHD)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-textDim uppercase tracking-widest mb-2">Frame Rate</label>
+                  <select
+                    value={exportSettings.fps}
+                    onChange={e => setExportSettings(s => ({ ...s, fps: parseInt(e.target.value) }))}
+                    className="w-full bg-background border border-white/10 rounded-lg p-3 text-sm focus:border-accent outline-none"
+                  >
+                    <option value="24">24 FPS (Cinematic)</option>
+                    <option value="30">30 FPS (Standard)</option>
+                    <option value="60">60 FPS (Smooth)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-textDim uppercase tracking-widest mb-2">Hardware Encoder</label>
+                  <input type="text" value={exportSettings.encoder} disabled className="w-full bg-black/50 border border-white/5 rounded-lg p-3 text-sm text-textDim" />
+                </div>
+              </div>
+
+              <button
+                onClick={handleExportSubmit}
+                className="w-full mt-8 bg-accent text-background font-black uppercase tracking-widest py-3 rounded-lg hover:bg-accent/90 transition-colors"
+              >
+                Start Render
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <main className="flex-1 flex overflow-hidden text-white">
         <div style={{ width: leftPanelWidth }} className="relative shrink-0">
@@ -561,7 +806,12 @@ function App() {
             </div>
 
             <div className="flex items-center gap-8 bg-black/20 px-6 py-1.5 rounded-full border border-white/5">
-              <Rewind size={18} className="text-textDim hover:text-white cursor-pointer transition-colors" />
+              <Rewind
+                size={18}
+                onClick={() => jumpSeconds(-5)}
+                className="text-textDim hover:text-white cursor-pointer transition-colors"
+                aria-label="Rewind 5 seconds"
+              />
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
@@ -570,7 +820,12 @@ function App() {
               >
                 {isPlaying ? <span className="w-3 h-3 bg-black rounded-sm" /> : <Play size={18} className="fill-black ml-1" />}
               </motion.button>
-              <FastForward size={18} className="text-textDim hover:text-white cursor-pointer transition-colors" />
+              <FastForward
+                size={18}
+                onClick={() => jumpSeconds(5)}
+                className="text-textDim hover:text-white cursor-pointer transition-colors"
+                aria-label="Fast forward 5 seconds"
+              />
             </div>
 
             <button

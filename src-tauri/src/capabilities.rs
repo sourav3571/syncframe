@@ -11,6 +11,16 @@ pub struct SystemCapabilities {
 }
 
 #[tauri::command]
+pub fn save_project(path: String, data: String) -> Result<(), String> {
+    std::fs::write(path, data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn load_project(path: String) -> Result<String, String> {
+    std::fs::read_to_string(path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn detect_system_capabilities() -> SystemCapabilities {
     println!("Backend: Detecting system capabilities...");
     let mut sys = System::new_all();

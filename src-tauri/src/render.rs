@@ -16,10 +16,20 @@ pub struct RenderClip {
     pub duration: f64,
     pub track_type: String,
     pub track_id: i32,
+    pub media_offset: f64,
+    pub volume: f64,
+    pub fade_in: f64,
+    pub fade_out: f64,
+    pub speed: f64,
+    pub crop_t: f64,
+    pub crop_b: f64,
+    pub crop_l: f64,
+    pub crop_r: f64,
+    pub has_audio: bool,
 }
 
 #[tauri::command]
-pub async fn start_render(app: AppHandle, output_path: String, encoder: String, clips: Vec<RenderClip>) -> Result<(), String> {
+pub async fn start_render(app: AppHandle, output_path: String, encoder: String, resolution: String, fps: i32, clips: Vec<RenderClip>) -> Result<(), String> {
     if clips.is_empty() {
         return Err("Timeline is empty".to_string());
     }
@@ -36,9 +46,9 @@ pub async fn start_render(app: AppHandle, output_path: String, encoder: String, 
 
     let mut filter_complex = String::new();
     
-    // 1. Create base black canvas (assuming 10 minute max for now or calculate from clips)
+    // 1. Create base black canvas
     let total_duration = clips.iter().map(|c| c.start + c.duration).fold(0.0, f64::max).max(1.0);
-    filter_complex.push_str(&format!("color=s=1920x1080:c=black:d={}[base];", total_duration));
+    filter_complex.push_str(&format!("color=s={}:c=black:d={}[base];", resolution, total_duration));
 
     let mut last_video_label = "base".to_string();
     let mut video_input_count = 0;
@@ -54,7 +64,20 @@ pub async fn start_render(app: AppHandle, output_path: String, encoder: String, 
             let ovl_label = format!("ovl{}", i);
             
             // Prep the individual clip: trim and set PTS
-            filter_complex.push_str(&format!("[{}:v]trim=duration={},setpts=PTS-STARTPTS[{}];", i, clip.duration, v_label));
+            let media_duration = clip.duration * clip.speed;
+            let mut v_filters = format!("trim=start={}:duration={},setpts=PTS-STARTPTS", clip.media_offset, media_duration);
+            
+            if (clip.speed - 1.0).abs() > 0.01 {
+                let setpts_factor = 1.0 / clip.speed;
+                v_filters.push_str(&format!(",setpts={}*PTS", setpts_factor));
+            }
+
+            if clip.crop_t > 0.0 || clip.crop_b > 0.0 || clip.crop_l > 0.0 || clip.crop_r > 0.0 {
+                v_filters.push_str(&format!(",crop=in_w*(1-({l}+{r})/100):in_h*(1-({t}+{b})/100):in_w*{l}/100:in_h*{t}/100",
+                    l=clip.crop_l, r=clip.crop_r, t=clip.crop_t, b=clip.crop_b));
+            }
+            
+            filter_complex.push_str(&format!("[{}:v]{}[{}];", i, v_filters, v_label));
             
             // Overlay it on the current stack at the specific start time
             filter_complex.push_str(&format!("[{}][{}]overlay=x=0:y=0:enable='between(t,{},{})'[{}];", 
@@ -73,34 +96,78 @@ pub async fn start_render(app: AppHandle, output_path: String, encoder: String, 
     let mut audio_count = 0;
 
     for (i, clip) in clips.iter().enumerate() {
+        if !clip.has_audio {
+            continue;
+        }
+        
         let delay_ms = (clip.start * 1000.0) as i64;
         let label = if clip.track_type == "video" { format!("a_vid_{}", i) } else { format!("a_ext_{}", i) };
+        let media_duration = clip.duration * clip.speed;
         
-        filter_complex.push_str(&format!("[{}:a]atrim=duration={},asetpts=PTS-STARTPTS,adelay={}|{}[{}];", 
-            i, clip.duration, delay_ms, delay_ms, label));
+        let mut a_filters = format!("atrim=start={}:duration={},asetpts=PTS-STARTPTS", clip.media_offset, media_duration);
+        
+        if (clip.speed - 1.0).abs() > 0.01 {
+            a_filters.push_str(&format!(",atempo={}", clip.speed));
+        }
+        
+        if (clip.volume - 1.0).abs() > 0.01 {
+            a_filters.push_str(&format!(",volume={}", clip.volume));
+        }
+        if clip.fade_in > 0.0 {
+            a_filters.push_str(&format!(",afade=t=in:ss=0:d={}", clip.fade_in));
+        }
+        if clip.fade_out > 0.0 {
+            let st = clip.duration - clip.fade_out;
+            a_filters.push_str(&format!(",afade=t=out:st={}:d={}", st, clip.fade_out));
+        }
+        
+        filter_complex.push_str(&format!("[{}:a]{},adelay={}|{}[{}];", i, a_filters, delay_ms, delay_ms, label));
         
         amix_inputs.push_str(&format!("[{}]", label));
         audio_count += 1;
     }
     
-    if audio_count > 0 {
-        filter_complex.push_str(&format!("{}amix=inputs={}:duration=longest:dropout_transition=2[outa];", amix_inputs, audio_count));
+    if audio_count == 1 {
+        // If there's only 1 audio track, we don't need amix. We can just use the first scaled/trimmed input.
+        let single_a_label = amix_inputs.trim_matches(|c| c == '[' || c == ']');
+        filter_complex.push_str(&format!("[{}]anull[outa];", single_a_label));
+        
+        args.push("-filter_complex".to_string());
+        args.push(filter_complex);
+        
+        args.push("-map".to_string());
+        args.push(format!("[{}]", main_v));
+        args.push("-map".to_string());
+        args.push("[outa]".to_string());
+    } else if audio_count > 1 {
+        // Use normalize=0 so it doesn't quiet down the audio for every new track added
+        filter_complex.push_str(&format!("{}amix=inputs={}:duration=longest:dropout_transition=2:normalize=0[outa];", amix_inputs, audio_count));
+        
+        args.push("-filter_complex".to_string());
+        args.push(filter_complex);
+        
+        args.push("-map".to_string());
+        args.push(format!("[{}]", main_v));
+        args.push("-map".to_string());
+        args.push("[outa]".to_string());
     } else {
-        filter_complex.push_str("anullsrc=channel_layout=stereo:sample_rate=44100[outa];"); 
+        // No audio streams to process, just map video
+        args.push("-filter_complex".to_string());
+        args.push(filter_complex);
+        
+        args.push("-map".to_string());
+        args.push(format!("[{}]", main_v));
     }
-
-    args.push("-filter_complex".to_string());
-    args.push(filter_complex);
-    
-    args.push("-map".to_string());
-    args.push(format!("[{}]", main_v));
-    args.push("-map".to_string());
-    args.push("[outa]".to_string());
 
     args.push("-c:v".to_string());
     args.push(encoder); 
-    args.push("-c:a".to_string());
-    args.push("aac".to_string());
+    args.push("-r".to_string());
+    args.push(fps.to_string());
+    
+    if audio_count > 0 {
+        args.push("-c:a".to_string());
+        args.push("aac".to_string());
+    }
     
     args.push("-shortest".to_string()); // Ensure it doesn't run forever if anullsrc is used poorly
     args.push("-y".to_string());
@@ -149,6 +216,48 @@ pub async fn start_render(app: AppHandle, output_path: String, encoder: String, 
 }
 
 #[tauri::command]
-pub async fn generate_proxy(_input: String, _output: String) -> Result<(), String> {
-    Ok(())
+pub async fn generate_proxy(input: String, output: String) -> Result<(), String> {
+    println!("Generating proxy for {} -> {}", input, output);
+    let mut args = Vec::new();
+    args.push("-i".to_string());
+    args.push(input);
+    args.push("-vf".to_string());
+    args.push("scale=-2:720".to_string());
+    args.push("-c:v".to_string());
+    args.push("libx264".to_string());
+    args.push("-preset".to_string());
+    args.push("ultrafast".to_string());
+    args.push("-crf".to_string());
+    args.push("28".to_string());
+    args.push("-y".to_string());
+    args.push(output);
+
+    let mut cmd = "ffmpeg".to_string();
+    let possible_paths = vec![
+        "src-tauri/bin/ffmpeg.exe",
+        "bin/ffmpeg.exe",
+        "../src-tauri/bin/ffmpeg.exe",
+    ];
+
+    for p in possible_paths {
+        if let Ok(path) = std::env::current_dir().map(|d| d.join(p)) {
+             if path.exists() {
+                 cmd = path.to_string_lossy().to_string();
+                 break;
+             }
+        }
+    }
+
+    let output_res = Command::new(cmd)
+        .args(&args)
+        .output();
+
+    match output_res {
+        Ok(o) if o.status.success() => Ok(()),
+        Ok(o) => {
+            let err = String::from_utf8_lossy(&o.stderr);
+            Err(format!("Failed to generate proxy: {}", err))
+        },
+        Err(e) => Err(format!("Error running ffmpeg: {}", e))
+    }
 }

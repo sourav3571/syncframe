@@ -12,10 +12,27 @@ export interface Clip {
   textContent?: string;
   stickerId?: string;
   assetId?: string;
+  mediaOffset?: number;
+  hasAudio?: boolean;
+  trimStart?: number;
+  trimEnd?: number;
+  isSynced?: boolean;
+  syncOffset?: number;
+  memeTemplate?: string;
   properties: {
     opacity: number;
     scale: number;
     rotation: number;
+    volume?: number;
+    fadeIn?: number;
+    fadeOut?: number;
+    speed?: number;
+    crop?: {
+      top: number;
+      right: number;
+      bottom: number;
+      left: number;
+    };
     filters: {
       blur: number;
       brightness: number;
@@ -54,6 +71,7 @@ export interface MediaAsset {
   format: 'video' | 'audio' | 'image';
   duration: number;
   lastUsed: number;
+  hasAudio?: boolean;
 }
 
 interface TimelineState {
@@ -75,6 +93,14 @@ interface TimelineState {
   addMediaToLibrary: (media: MediaAsset) => void;
   removeMediaFromLibrary: (id: string) => void;
   initializeTracks: () => void;
+  pastClips: Clip[][];
+  futureClips: Clip[][];
+  undo: () => void;
+  redo: () => void;
+  commitToHistory: () => void;
+  trimClip: (id: string, start: number, end: number) => void;
+  syncClips: (clipIds: string[], referenceTime: number) => void;
+  applyMemeTemplate: (clipIds: string[], template: string) => void;
 }
 
 export const useTimelineStore = create<TimelineState>()(
@@ -102,37 +128,72 @@ export const useTimelineStore = create<TimelineState>()(
         }
       },
       clips: [],
+      pastClips: [],
+      futureClips: [],
+      commitToHistory: () => set((state) => ({
+        pastClips: [...state.pastClips.slice(-19), state.clips],
+        futureClips: []
+      })),
+      undo: () => set((state) => {
+        if (state.pastClips.length === 0) return state;
+        const previous = state.pastClips[state.pastClips.length - 1];
+        return {
+          clips: previous,
+          pastClips: state.pastClips.slice(0, -1),
+          futureClips: [state.clips, ...state.futureClips]
+        };
+      }),
+      redo: () => set((state) => {
+        if (state.futureClips.length === 0) return state;
+        const next = state.futureClips[0];
+        return {
+          clips: next,
+          pastClips: [...state.pastClips, state.clips],
+          futureClips: state.futureClips.slice(1)
+        };
+      }),
       mediaLibrary: [],
       currentTime: 0,
       isPlaying: false,
       zoom: 10,
       selectedClipId: null,
-      addClip: (clip) => set((state) => ({ clips: [...state.clips, clip] })),
-      removeClip: (id) => set((state) => ({ clips: state.clips.filter((c) => c.id !== id) })),
-      updateClip: (id, updates) =>
+      addClip: (clip) => {
+        get().commitToHistory();
+        set((state) => ({ clips: [...state.clips, clip] }));
+      },
+      removeClip: (id) => {
+        get().commitToHistory();
+        set((state) => ({ clips: state.clips.filter((c) => c.id !== id) }));
+      },
+      updateClip: (id, updates) => {
+        get().commitToHistory();
         set((state) => ({
           clips: state.clips.map((c) => (c.id === id ? { ...c, ...updates } : c)),
-        })),
-      splitClip: (id, time) => set((state) => {
-        const clipToSplit = state.clips.find(c => c.id === id);
-        if (!clipToSplit) return state;
+        }));
+      },
+      splitClip: (id, time) => {
+        get().commitToHistory();
+        set((state) => {
+          const clipToSplit = state.clips.find(c => c.id === id);
+          if (!clipToSplit) return state;
 
-        const splitPoint = time - clipToSplit.start;
-        if (splitPoint <= 0 || splitPoint >= clipToSplit.duration) return state;
+          const splitPoint = time - clipToSplit.start;
+          if (splitPoint <= 0 || splitPoint >= clipToSplit.duration) return state;
 
-        const newClip1 = { ...clipToSplit, duration: splitPoint };
-        const newClip2 = {
-          ...clipToSplit,
-          id: Math.random().toString(36).substr(2, 9),
-          start: time,
-          duration: clipToSplit.duration - splitPoint,
-          name: `${clipToSplit.name} (Part 2)`
-        };
+          const newClip1 = { ...clipToSplit, duration: splitPoint };
+          const newClip2 = {
+            ...clipToSplit,
+            id: Math.random().toString(36).substr(2, 9),
+            start: time,
+            duration: clipToSplit.duration - splitPoint,
+            name: `${clipToSplit.name} (Part 2)`
+          };
 
-        return {
-          clips: state.clips.filter(c => c.id !== id).concat([newClip1, newClip2])
-        };
-      }),
+          return {
+            clips: state.clips.filter(c => c.id !== id).concat([newClip1, newClip2])
+          };
+        });
+      },
       setCurrentTime: (time) => set({ currentTime: time }),
       setIsPlaying: (playing) => set({ isPlaying: playing }),
       setZoom: (zoom) => set({ zoom }),
@@ -145,6 +206,60 @@ export const useTimelineStore = create<TimelineState>()(
       removeMediaFromLibrary: (id) => set((state) => ({
         mediaLibrary: state.mediaLibrary.filter(m => m.id !== id)
       })),
+      trimClip: (id, start, end) => {
+        get().commitToHistory();
+        set((state) => ({
+          clips: state.clips.map((c) => 
+            c.id === id 
+              ? { 
+                  ...c, 
+                  trimStart: Math.max(0, start),
+                  trimEnd: Math.min(c.duration, end)
+                }
+              : c
+          ),
+        }));
+      },
+      syncClips: (clipIds, referenceTime) => {
+        get().commitToHistory();
+        set((state) => ({
+          clips: state.clips.map((c) => 
+            clipIds.includes(c.id)
+              ? { 
+                  ...c,
+                  isSynced: true,
+                  syncOffset: referenceTime - c.start,
+                  start: referenceTime,
+                  properties: {
+                    ...c.properties,
+                    fadeIn: 300,
+                    fadeOut: 300
+                  }
+                }
+              : c
+          ),
+        }));
+      },
+      applyMemeTemplate: (clipIds, template) => {
+        get().commitToHistory();
+        set((state) => ({
+          clips: state.clips.map((c) =>
+            clipIds.includes(c.id)
+              ? {
+                  ...c,
+                  memeTemplate: template,
+                  properties: {
+                    ...c.properties,
+                    scale: 100,
+                    rotation: 0,
+                    opacity: 100,
+                    filters: { blur: 0, brightness: 100, contrast: 100, sepia: false, grayscale: false }
+                  }
+                }
+              : c
+          ),
+        }));
+      },
     }),
     {
       name: 'syncframe-timeline-storage',

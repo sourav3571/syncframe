@@ -7,6 +7,7 @@ pub struct MediaMetadata {
     pub duration: f64,
     pub format: String,
     pub resolution: String,
+    pub has_audio: bool,
 }
 
 #[command]
@@ -29,7 +30,7 @@ pub async fn get_media_metadata(path: String) -> Result<MediaMetadata, String> {
         }
     }
 
-    let output = Command::new(cmd)
+    let output = Command::new(&cmd)
         .args(&["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", &path])
         .output();
 
@@ -46,6 +47,7 @@ pub async fn get_media_metadata(path: String) -> Result<MediaMetadata, String> {
                 duration,
                 format: if is_image { "image" } else if is_audio { "audio" } else { "video" }.to_string(), 
                 resolution: if is_audio { "N/A" } else { "1920x1080" }.to_string(),
+                has_audio: is_audio || check_has_audio(&cmd, &path),
             })
         },
         _ => {
@@ -58,7 +60,22 @@ pub async fn get_media_metadata(path: String) -> Result<MediaMetadata, String> {
                 duration: if is_image { 5.0 } else { 10.0 },
                 format: if is_image { "image" } else if is_audio { "audio" } else { "video" }.to_string(),
                 resolution: "unknown".to_string(),
+                has_audio: is_audio,
             })
         }
+    }
+}
+
+fn check_has_audio(cmd: &str, path: &str) -> bool {
+    let output = Command::new(cmd)
+        .args(&["-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "default=noprint_wrappers=1:nokey=1", path])
+        .output();
+        
+    match output {
+        Ok(o) if o.status.success() => {
+            let out = String::from_utf8_lossy(&o.stdout);
+            out.trim() == "audio"
+        },
+        _ => false
     }
 }
