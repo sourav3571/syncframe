@@ -3,6 +3,8 @@ mod audio_sync;
 mod render;
 mod media;
 mod smart_features;
+mod smoothness;
+mod smooth_render;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -22,6 +24,11 @@ pub fn run() {
             smart_features::recommend_export_settings,
             smart_features::proxy_video,
             smart_features::analyze_video_quality,
+            smoothness::get_smoothplay_config,
+            smoothness::update_smoothness_metrics,
+            smoothness::analyze_sync_quality,
+            smooth_render::get_render_pipeline_config,
+            smooth_render::preview_render_filters,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

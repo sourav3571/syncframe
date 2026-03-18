@@ -205,7 +205,7 @@ export const useTimelineStore = create<TimelineState>()(
           };
         });
       },
-      setCurrentTime: (time) => set({ currentTime: time }),
+      setCurrentTime: (time) => set({ currentTime: Math.max(0, time) }),
       setIsPlaying: (playing) => set({ isPlaying: playing }),
       setZoom: (zoom) => set({ zoom }),
       setSelectedClipId: (id) => set({ selectedClipId: id }),
@@ -275,6 +275,10 @@ export const useTimelineStore = create<TimelineState>()(
     {
       name: 'syncframe-timeline-storage',
       version: 2, // Bumped to version 2 to ensure tracks 4 & 5 are available
+      partialize: (state) => {
+        const { currentTime, isPlaying, ...rest } = state;
+        return rest;
+      },
     }
   )
 );

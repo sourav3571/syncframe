@@ -3,24 +3,76 @@ import { motion } from 'framer-motion';
 import { useTimelineStore } from '../../store/useTimelineStore';
 import { Scissors, MousePointer2, ZoomIn, ZoomOut, Clock, Trash2, Eye, Volume2, Music } from 'lucide-react';
 
+// Sub-component for the live time display to isolate re-renders
+const TimeDisplay = () => {
+    const currentTime = useTimelineStore(s => s.currentTime);
+    return (
+        <div className="flex items-center gap-2 text-[10px] font-bold text-textDim uppercase tracking-widest bg-black/40 px-3 py-1.5 rounded-lg border border-border">
+            <Clock size={12} className="text-accent" />
+            <span className="mono text-accent">{new Date(currentTime * 1000).toISOString().substr(11, 10)}</span>
+        </div>
+    );
+};
+
+// Sub-component for the playhead and auto-scroll logic
+const Playhead = ({ timelineRef, zoom, tracksCount, isLineDragging, setIsLineDragging, setIsAutoScrollEnabled, isAutoScrollEnabled }: { 
+    timelineRef: React.RefObject<HTMLDivElement | null>, 
+    zoom: number, 
+    tracksCount: number,
+    isLineDragging: boolean,
+    setIsLineDragging: (v: boolean) => void,
+    setIsAutoScrollEnabled: (v: boolean) => void,
+    isAutoScrollEnabled: boolean
+}) => {
+    const currentTime = useTimelineStore(s => s.currentTime);
+
+    React.useEffect(() => {
+        const el = timelineRef.current;
+        if (!el || isLineDragging || !isAutoScrollEnabled) return;
+
+        const centerX = currentTime * zoom - el.clientWidth / 2;
+        el.scrollTo({ left: Math.max(0, centerX), behavior: 'auto' });
+    }, [currentTime, zoom, isLineDragging, isAutoScrollEnabled, timelineRef]);
+
+    return (
+        <div
+            className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-40 shadow-[0_0_15px_rgba(239,68,68,0.5)] cursor-ew-resize"
+            onMouseDown={(e) => { e.stopPropagation(); setIsLineDragging(true); setIsAutoScrollEnabled(false); }}
+            style={{
+                left: currentTime * zoom,
+                height: tracksCount * 64 + 40,
+                pointerEvents: isLineDragging ? 'auto' : 'auto',
+            }}
+        >
+            <div className="w-4 h-5 bg-red-500 absolute -top-1 -left-[7px] [clip-path:polygon(0%_0%,100%_0%,100%_70%,50%_100%,0%_70%)]" />
+        </div>
+    );
+};
+
 export const Timeline = () => {
-    const { tracks, clips, currentTime, zoom, selectedClipId, setCurrentTime, setSelectedClipId, setZoom, splitClip, removeClip, updateClip, moveClipLive } = useTimelineStore();
+    const { tracks, clips, mediaLibrary, zoom, selectedClipId, setCurrentTime, setSelectedClipId, setZoom, splitClip, removeClip, updateClip } = useTimelineStore();
+    // Use a reference for currentTime in callbacks to avoid re-renders
+    const currentTimeRef = useRef(0);
+    React.useEffect(() => {
+        return useTimelineStore.subscribe(
+            (state) => { currentTimeRef.current = state.currentTime; }
+        );
+    }, []);
+
     const timelineRef = useRef<HTMLDivElement>(null);
     const sidebarRef = useRef<HTMLDivElement>(null);
     const [mode, setMode] = React.useState<'select' | 'split'>('select');
     const [isLineDragging, setIsLineDragging] = React.useState(false);
     const [isAutoScrollEnabled, setIsAutoScrollEnabled] = React.useState(true);
-    const [isClipDragging, setIsClipDragging] = React.useState(false);
-    const [dragInfo, setDragInfo] = React.useState<{ clipId: string; timeLabel: string } | null>(null);
-    const activeDragRef = useRef<{ clipId: string; startMouseX: number; startClipPos: number } | null>(null);
 
     React.useEffect(() => {
         if (!isLineDragging || !timelineRef.current) return;
 
         const onMouseMove = (event: MouseEvent) => {
             const rect = timelineRef.current!.getBoundingClientRect();
-            let x = event.clientX - rect.left;
-            x = Math.max(0, Math.min(x, rect.width));
+            const localX = event.clientX - rect.left;
+            let x = localX + timelineRef.current!.scrollLeft;
+            x = Math.max(0, Math.min(x, timelineRef.current!.scrollWidth));
             setCurrentTime(x / zoom);
         };
 
@@ -38,80 +90,39 @@ export const Timeline = () => {
         };
     }, [isLineDragging, zoom, setCurrentTime]);
 
-    // Global clip drag effect - updates clip position live on every mousemove
-    React.useEffect(() => {
-        if (!isClipDragging) return;
-
-        const onMouseMove = (e: MouseEvent) => {
-            const drag = activeDragRef.current;
-            if (!drag) return;
-            const dx = e.clientX - drag.startMouseX;
-            const rawStart = drag.startClipPos + dx / zoom;
-            // Snap to 0.5s grid for easier placement
-            const snapped = Math.round(rawStart * 2) / 2;
-            const clamped = Math.max(0, snapped);
-            moveClipLive(drag.clipId, clamped);
-            const mm = Math.floor(clamped / 60).toString().padStart(2, '0');
-            const ss = (clamped % 60).toFixed(1).padStart(4, '0');
-            setDragInfo({ clipId: drag.clipId, timeLabel: `${mm}:${ss}` });
-        };
-
-        const onMouseUp = () => {
-            const drag = activeDragRef.current;
-            if (drag) {
-                // Commit final position to undo history
-                const clip = useTimelineStore.getState().clips.find(c => c.id === drag.clipId);
-                if (clip) updateClip(drag.clipId, { start: clip.start });
+    const handleTimelineClick = (e: React.MouseEvent) => {
+        if ((e.target as HTMLElement).closest('.clip-item')) {
+            if (mode === 'split' && selectedClipId) {
+                splitClip(selectedClipId, currentTimeRef.current);
+                setMode('select');
             }
-            activeDragRef.current = null;
-            setIsClipDragging(false);
-            setDragInfo(null);
-            setIsAutoScrollEnabled(true);
-        };
+            return;
+        }
+        if (!timelineRef.current) return;
+        const rect = timelineRef.current.getBoundingClientRect();
+        const localX = e.clientX - rect.left;
+        let x = localX + timelineRef.current.scrollLeft;
+        x = Math.max(0, Math.min(x, timelineRef.current.scrollWidth));
+        const time = Math.max(0, x / zoom);
+        setCurrentTime(time);
+        setSelectedClipId(null);
+    };
 
-        window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
-        return () => {
-            window.removeEventListener('mousemove', onMouseMove);
-            window.removeEventListener('mouseup', onMouseUp);
-        };
-    }, [isClipDragging, zoom, moveClipLive, updateClip]);
+    const handleClipClick = (e: React.MouseEvent, clip: any) => {
+        e.stopPropagation();
 
-    const handleClipMouseDown = (e: React.MouseEvent, clip: any) => {
         if (mode === 'split') {
-            e.stopPropagation();
-            splitClip(clip.id, currentTime);
+            splitClip(clip.id, currentTimeRef.current);
             setMode('select');
             return;
         }
-        e.stopPropagation();
-        e.preventDefault();
-        setSelectedClipId(clip.id);
-        setIsAutoScrollEnabled(false);
-        activeDragRef.current = { clipId: clip.id, startMouseX: e.clientX, startClipPos: clip.start };
-        setIsClipDragging(true);
-    };
 
-    const handleTimelineClick = (e: React.MouseEvent) => {
-        if ((e.target as HTMLElement).closest('.clip-item')) return;
-        if (!timelineRef.current) return;
-        const rect = timelineRef.current.getBoundingClientRect();
-        const scrollLeft = timelineRef.current.scrollLeft;
-        const x = e.clientX - rect.left + scrollLeft;
-        const time = x / zoom;
-        if (time >= 0) {
-            setCurrentTime(time);
-            setSelectedClipId(null);
+        setSelectedClipId(clip.id);
+
+        if (currentTimeRef.current < clip.start || currentTimeRef.current > clip.start + clip.duration) {
+            setCurrentTime(clip.start);
         }
     };
-
-    React.useEffect(() => {
-        const el = timelineRef.current;
-        if (!el || isLineDragging || !isAutoScrollEnabled) return;
-
-        const centerX = currentTime * zoom - el.clientWidth / 2;
-        el.scrollTo({ left: Math.max(0, centerX), behavior: 'auto' });
-    }, [currentTime, zoom, isLineDragging, isAutoScrollEnabled]);
 
     return (
         <div className="flex flex-col h-full bg-background border-t border-border select-none">
@@ -143,10 +154,7 @@ export const Timeline = () => {
                         </button>
                     )}
                     <div className="h-4 w-px bg-white/10 mx-2" />
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-textDim uppercase tracking-widest bg-black/40 px-3 py-1.5 rounded-lg border border-border">
-                        <Clock size={12} className="text-accent" />
-                        <span className="mono text-accent">{new Date(currentTime * 1000).toISOString().substr(11, 10)}</span>
-                    </div>
+                    <TimeDisplay />
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -158,15 +166,11 @@ export const Timeline = () => {
                 </div>
             </div>
 
-            <div className="flex-1 flex overflow-hidden relative">
-                {/* Left side: Track Labels */}
-                <div className="w-[110px] shrink-0 flex flex-col bg-surface/60 border-r border-border z-10">
-                    {/* Spacer matching the sticky time ruler */}
-                    <div className="h-10 border-b border-border shrink-0 bg-surface/40 backdrop-blur-md" />
-                    {/* Scrollable track labels - synced with timeline */}
+            <div className="flex-1 flex overflow-hidden">
+                <div className="w-[110px] bg-surface/60 border-r border-border flex flex-col pt-10 overflow-hidden">
                     <div
+                        className="flex-1 overflow-y-auto scrollbar-hide"
                         ref={sidebarRef}
-                        className="flex-1 overflow-y-hidden scrollbar-hide"
                     >
                         {tracks.map((track) => (
                             <div key={track.id} className="h-16 px-3 flex flex-col justify-center gap-1 group border-b border-border bg-background/50 hover:bg-background transition-colors relative">
@@ -182,7 +186,6 @@ export const Timeline = () => {
                     </div>
                 </div>
 
-                {/* Right side: Timeline clips */}
                 <div
                     ref={timelineRef}
                     className="flex-1 relative overflow-auto custom-scrollbar timeline-grid cursor-crosshair group/v"
@@ -206,23 +209,25 @@ export const Timeline = () => {
                     </div>
 
                     <div className="relative pt-0">
-                        <motion.div
-                            className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-40 shadow-[0_0_15px_rgba(239,68,68,0.5)] cursor-ew-resize"
-                            onMouseDown={(e) => { e.stopPropagation(); setIsLineDragging(true); setIsAutoScrollEnabled(false); }}
-                            animate={{ x: currentTime * zoom }}
-                            transition={{ type: "spring", bounce: 0, duration: 0.1 }}
-                            style={{ height: tracks.length * 64 + 40, pointerEvents: isLineDragging ? 'auto' : 'auto' }}
-                        >
-                            <div className="w-4 h-5 bg-red-500 absolute -top-1 -left-[7px] [clip-path:polygon(0%_0%,100%_0%,100%_70%,50%_100%,0%_70%)]" />
-                        </motion.div>
+                        <Playhead 
+                            timelineRef={timelineRef} 
+                            zoom={zoom} 
+                            tracksCount={tracks.length} 
+                            isLineDragging={isLineDragging}
+                            setIsLineDragging={setIsLineDragging}
+                            isAutoScrollEnabled={isAutoScrollEnabled}
+                            setIsAutoScrollEnabled={setIsAutoScrollEnabled}
+                        />
 
                         {tracks.map((track) => (
                             <div key={track.id} className="h-16 border-b border-white/5 relative">
                                 {clips.filter(c => c.trackId === track.id).map(clip => (
-                                    <div
+                                    <motion.div
                                         key={clip.id}
-                                        onMouseDown={(e) => handleClipMouseDown(e, clip)}
-                                        className={`clip-item absolute h-12 top-2 rounded-lg flex flex-col justify-center px-3 overflow-hidden cursor-grab active:cursor-grabbing transition-colors border-2 group ${selectedClipId === clip.id
+                                        layoutId={clip.id}
+                                        onClick={(e) => handleClipClick(e, clip)}
+                                        whileHover={{ scaleY: 1.05 }}
+                                        className={`clip-item absolute h-12 top-2 rounded-lg flex flex-col justify-center px-3 overflow-hidden cursor-pointer transition-all border-2 group ${selectedClipId === clip.id
                                             ? 'bg-accent/30 border-accent shadow-[0_0_20px_rgba(var(--accent-rgb),0.3)] z-10'
                                             : clip.format === 'audio'
                                                 ? 'bg-indigo-500/30 border-indigo-400/20 hover:border-indigo-400/40'
@@ -230,16 +235,15 @@ export const Timeline = () => {
                                             }`}
                                         style={{
                                             left: clip.start * zoom,
-                                            width: Math.max(20, clip.duration * zoom),
-                                            userSelect: 'none',
+                                            width: Math.max(20, clip.duration * zoom)
+                                        }}
+                                        drag="x"
+                                        dragMomentum={false}
+                                        onDragEnd={(_, info) => {
+                                            const newStart = Math.max(0, clip.start + info.offset.x / zoom);
+                                            updateClip(clip.id, { start: newStart });
                                         }}
                                     >
-                                        {/* Live time badge while dragging */}
-                                        {dragInfo?.clipId === clip.id && (
-                                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-accent text-black text-[9px] font-black px-2 py-0.5 rounded-full mono whitespace-nowrap z-50 pointer-events-none">
-                                                {dragInfo.timeLabel}
-                                            </div>
-                                        )}
                                         <div className="flex items-center justify-between mb-1 translate-y-1">
                                             <div className="flex items-center gap-1.5 truncate">
                                                 {clip.format === 'audio' && <Music size={10} className="text-indigo-400 shrink-0" />}
@@ -256,7 +260,58 @@ export const Timeline = () => {
                                                 />
                                             ))}
                                         </div>
-                                    </div>
+                                        <motion.div
+                                            drag="x"
+                                            dragMomentum={false}
+                                            onDragEnd={(e, info) => {
+                                                e.stopPropagation();
+                                                const offsetTime = info.offset.x / zoom;
+                                                const newStart = Math.max(0, clip.start + offsetTime);
+                                                const timeDiff = newStart - clip.start;
+                                                const currentMediaOffset = clip.mediaOffset || 0;
+                                                
+                                                // Prevent negative media offset (trimming before start of video)
+                                                if (currentMediaOffset + timeDiff < 0) return;
+                                                
+                                                // Prevent trimming beyond the end of the video from the left
+                                                const newDuration = Math.max(0.5, clip.duration - timeDiff);
+                                                
+                                                updateClip(clip.id, {
+                                                    start: newStart,
+                                                    duration: newDuration,
+                                                    mediaOffset: currentMediaOffset + timeDiff
+                                                });
+                                            }}
+                                            className="absolute left-0 top-0 bottom-0 w-4 bg-black/20 hover:bg-white/40 cursor-ew-resize z-20 flex items-center justify-center border-r border-white/20"
+                                            title="Trim Left Edge"
+                                        >
+                                            <div className="w-[2px] h-4 bg-white/60 rounded-full shrink-0" />
+                                        </motion.div>
+                                        <motion.div
+                                            drag="x"
+                                            dragMomentum={false}
+                                            onDragEnd={(e, info) => {
+                                                e.stopPropagation();
+                                                const newWidthPx = clip.duration * zoom + info.offset.x;
+                                                let newDuration = Math.max(0.5, newWidthPx / zoom);
+                                                
+                                                // Bound right edge by source media duration
+                                                const sourceMedia = mediaLibrary.find(m => m.source === clip.source);
+                                                if (sourceMedia) {
+                                                    const maxDuration = sourceMedia.duration - (clip.mediaOffset || 0);
+                                                    if (newDuration > maxDuration) {
+                                                        newDuration = maxDuration;
+                                                    }
+                                                }
+                                                
+                                                updateClip(clip.id, { duration: newDuration });
+                                            }}
+                                            className="absolute right-0 top-0 bottom-0 w-4 bg-black/20 hover:bg-white/40 cursor-ew-resize z-20 flex items-center justify-center border-l border-white/20"
+                                            title="Trim Right Edge"
+                                        >
+                                            <div className="w-[2px] h-4 bg-white/60 rounded-full shrink-0" />
+                                        </motion.div>
+                                    </motion.div>
                                 ))}
                             </div>
                         ))}

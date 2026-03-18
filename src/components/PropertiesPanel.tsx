@@ -2,7 +2,7 @@ import { useTimelineStore } from '../store/useTimelineStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sliders, Monitor, Hash, Palette, Type, SlidersHorizontal, Trash2, Volume2, FastForward, Crop, Scissors, Link2, Smile } from 'lucide-react';
 import { useState } from 'react';
-import { TrimTool } from './TrimTool';
+import { KeyframeTrimTool } from './KeyframeTrimTool';
 import { MultiVideoSync } from './MultiVideoSync';
 import { MemeTemplate } from './MemeTemplate';
 
@@ -12,6 +12,40 @@ export const PropertiesPanel = () => {
     const [showTrimTool, setShowTrimTool] = useState(false);
     const [showSyncTool, setShowSyncTool] = useState(false);
     const [showMemeTemplate, setShowMemeTemplate] = useState(false);
+
+    const defaultFilters = {
+        blur: 0,
+        brightness: 100,
+        contrast: 100,
+        sepia: false,
+        grayscale: false,
+        custom: 'none'
+    };
+
+    const defaultAdjustments = {
+        saturation: 100,
+        exposure: 0,
+        temp: 0,
+        tint: 0,
+        highlights: 0,
+        shadows: 0,
+        vignette: 0
+    };
+
+    const defaultCrop = { top: 0, right: 0, bottom: 0, left: 0 };
+
+    const currentProps = selectedClip?.properties || {
+        opacity: 100,
+        scale: 100,
+        rotation: 0,
+        filters: defaultFilters,
+        adjustments: defaultAdjustments,
+        crop: defaultCrop
+    };
+
+    const currentFilters = currentProps.filters || defaultFilters;
+    const currentAdjustments = currentProps.adjustments || defaultAdjustments;
+    const currentCrop = currentProps.crop || defaultCrop;
 
     const handlePropChange = (key: string, value: any) => {
         if (!selectedClip) return;
@@ -29,6 +63,7 @@ export const PropertiesPanel = () => {
             properties: {
                 ...selectedClip.properties,
                 filters: {
+                    ...defaultFilters,
                     ...selectedClip.properties.filters,
                     [key]: value
                 }
@@ -42,6 +77,7 @@ export const PropertiesPanel = () => {
             properties: {
                 ...selectedClip.properties,
                 adjustments: {
+                    ...defaultAdjustments,
                     ...(selectedClip.properties.adjustments as any),
                     [key]: value
                 }
@@ -55,7 +91,8 @@ export const PropertiesPanel = () => {
             properties: {
                 ...selectedClip.properties,
                 crop: {
-                    ...(selectedClip.properties.crop || { top: 0, right: 0, bottom: 0, left: 0 }),
+                    ...defaultCrop,
+                    ...(selectedClip.properties.crop || {}),
                     [key]: value
                 }
             }
@@ -137,22 +174,25 @@ export const PropertiesPanel = () => {
                                         { label: 'Opacity', key: 'opacity', min: 0, max: 100, unit: '%' },
                                         { label: 'Scale', key: 'scale', min: 5, max: 500, unit: '%' },
                                         { label: 'Rotation', key: 'rotation', min: -180, max: 180, unit: '°' },
-                                    ].map((prop) => (
-                                        <div key={prop.key} className="space-y-2">
-                                            <div className="flex justify-between text-[10px] font-bold">
-                                                <span className="text-textDim uppercase tracking-tighter">{prop.label}</span>
-                                                <span className="text-accent mono">{(selectedClip.properties as any)[prop.key]}{prop.unit}</span>
+                                    ].map((prop) => {
+                                        const value = (currentProps as any)[prop.key] ?? (prop.key === 'opacity' ? 100 : prop.key === 'scale' ? 100 : 0);
+                                        return (
+                                            <div key={prop.key} className="space-y-2">
+                                                <div className="flex justify-between text-[10px] font-bold">
+                                                    <span className="text-textDim uppercase tracking-tighter">{prop.label}</span>
+                                                    <span className="text-accent mono">{value}{prop.unit}</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min={prop.min}
+                                                    max={prop.max}
+                                                    value={value}
+                                                    onChange={(e) => handlePropChange(prop.key, parseInt(e.target.value))}
+                                                    className="w-full accent-accent h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer"
+                                                />
                                             </div>
-                                            <input
-                                                type="range"
-                                                min={prop.min}
-                                                max={prop.max}
-                                                value={(selectedClip.properties as any)[prop.key]}
-                                                onChange={(e) => handlePropChange(prop.key, parseInt(e.target.value))}
-                                                className="w-full accent-accent h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer"
-                                            />
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
 
@@ -167,22 +207,25 @@ export const PropertiesPanel = () => {
                                             { label: 'Volume', key: 'volume', min: 0, max: 200, unit: '%' },
                                             { label: 'Fade In', key: 'fadeIn', min: 0, max: 10, unit: 's' },
                                             { label: 'Fade Out', key: 'fadeOut', min: 0, max: 10, unit: 's' },
-                                        ].map((prop) => (
-                                            <div key={prop.key} className="space-y-2">
-                                                <div className="flex justify-between text-[10px] font-bold">
-                                                    <span className="text-textDim uppercase tracking-tighter">{prop.label}</span>
-                                                    <span className="text-accent mono">{((selectedClip.properties as any)[prop.key] !== undefined ? (selectedClip.properties as any)[prop.key] : (prop.key === 'volume' ? 100 : 0))}{prop.unit}</span>
+                                        ].map((prop) => {
+                                            const value = (currentProps as any)[prop.key] !== undefined ? (currentProps as any)[prop.key] : (prop.key === 'volume' ? 100 : 0);
+                                            return (
+                                                <div key={prop.key} className="space-y-2">
+                                                    <div className="flex justify-between text-[10px] font-bold">
+                                                        <span className="text-textDim uppercase tracking-tighter">{prop.label}</span>
+                                                        <span className="text-accent mono">{value}{prop.unit}</span>
+                                                    </div>
+                                                    <input
+                                                        type="range"
+                                                        min={prop.min}
+                                                        max={prop.max}
+                                                        value={value}
+                                                        onChange={(e) => handlePropChange(prop.key, parseInt(e.target.value))}
+                                                        className="w-full accent-accent h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer"
+                                                    />
                                                 </div>
-                                                <input
-                                                    type="range"
-                                                    min={prop.min}
-                                                    max={prop.max}
-                                                    value={((selectedClip.properties as any)[prop.key] !== undefined ? (selectedClip.properties as any)[prop.key] : (prop.key === 'volume' ? 100 : 0))}
-                                                    onChange={(e) => handlePropChange(prop.key, parseInt(e.target.value))}
-                                                    className="w-full accent-accent h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer"
-                                                />
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
@@ -196,14 +239,14 @@ export const PropertiesPanel = () => {
                                     <div className="space-y-2">
                                         <div className="flex justify-between text-[10px] font-bold">
                                             <span className="text-textDim uppercase tracking-tighter">Speed</span>
-                                            <span className="text-accent mono">{((selectedClip.properties as any).speed || 1).toFixed(1)}x</span>
+                                            <span className="text-accent mono">{((currentProps as any).speed || 1).toFixed(1)}x</span>
                                         </div>
                                         <input
                                             type="range"
                                             min="0.1"
                                             max="5"
                                             step="0.1"
-                                            value={(selectedClip.properties as any).speed || 1}
+                                            value={(currentProps as any).speed || 1}
                                             onChange={(e) => handlePropChange('speed', parseFloat(e.target.value))}
                                             className="w-full accent-accent h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer"
                                             disabled={selectedClip.format === 'image'}
@@ -219,13 +262,13 @@ export const PropertiesPanel = () => {
                                                 <div key={side} className="space-y-1 block">
                                                     <div className="flex justify-between text-[9px] font-bold text-textDim uppercase">
                                                         <span>{side}</span>
-                                                        <span className="text-white">{(selectedClip.properties.crop as any)?.[side] || 0}%</span>
+                                                        <span className="text-white">{(currentCrop as any)[side] || 0}%</span>
                                                     </div>
                                                     <input
                                                         type="range"
                                                         min="0"
                                                         max="100"
-                                                        value={(selectedClip.properties.crop as any)?.[side] || 0}
+                                                        value={(currentCrop as any)[side] || 0}
                                                         onChange={(e) => handleCropChange(side as any, parseInt(e.target.value))}
                                                         className="w-full accent-accent h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer"
                                                     />
@@ -251,13 +294,13 @@ export const PropertiesPanel = () => {
                                             <div key={prop.key} className="space-y-2">
                                                 <div className="flex justify-between text-[10px] font-bold">
                                                     <span className="text-textDim uppercase tracking-tighter">{prop.label}</span>
-                                                    <span className="text-textMain mono">{(selectedClip.properties.adjustments as any)[prop.key]}</span>
+                                                    <span className="text-textMain mono">{(currentAdjustments as any)[prop.key]}</span>
                                                 </div>
                                                 <input
                                                     type="range"
                                                     min={prop.min}
                                                     max={prop.max}
-                                                    value={(selectedClip.properties.adjustments as any)[prop.key]}
+                                                    value={(currentAdjustments as any)[prop.key]}
                                                     onChange={(e) => handleAdjChange(prop.key, parseInt(e.target.value))}
                                                     className="w-full accent-accent h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer"
                                                 />
@@ -274,20 +317,20 @@ export const PropertiesPanel = () => {
                                 </div>
                                 <div className="space-y-5">
                                     {[
-                                        { label: 'Brightness', key: 'brightness' },
-                                        { label: 'Contrast', key: 'contrast' },
-                                        { label: 'Blur', key: 'blur', max: 50 },
+                                        { label: 'Brightness', key: 'brightness', min: 0 },
+                                        { label: 'Contrast', key: 'contrast', min: 0 },
+                                        { label: 'Blur', key: 'blur', min: 0, max: 50 },
                                     ].map((prop) => (
                                         <div key={prop.key} className="space-y-2">
                                             <div className="flex justify-between text-[10px] font-bold">
                                                 <span className="text-textDim uppercase tracking-tighter">{prop.label}</span>
-                                                <span className="text-textMain mono">{(selectedClip.properties.filters as any)[prop.key]}</span>
+                                                <span className="text-textMain mono">{(currentFilters as any)[prop.key]}</span>
                                             </div>
                                             <input
                                                 type="range"
-                                                min="0"
-                                                max={prop.max || 200}
-                                                value={(selectedClip.properties.filters as any)[prop.key]}
+                                                min={prop.min}
+                                                max={prop.max}
+                                                value={(currentFilters as any)[prop.key]}
                                                 onChange={(e) => handleFilterChange(prop.key, parseInt(e.target.value))}
                                                 className="w-full accent-accent h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer"
                                             />
@@ -298,7 +341,7 @@ export const PropertiesPanel = () => {
                                 <div className="grid grid-cols-2 gap-3 pt-2">
                                     <button
                                         onClick={() => toggleFilter('sepia')}
-                                        className={`py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${selectedClip.properties.filters.sepia
+                                        className={`py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${currentFilters.sepia
                                             ? 'bg-surfaceHighlight border-accent/50 text-accent'
                                             : 'bg-white/5 border-white/5 text-textDim'
                                             }`}
@@ -307,7 +350,7 @@ export const PropertiesPanel = () => {
                                     </button>
                                     <button
                                         onClick={() => toggleFilter('grayscale')}
-                                        className={`py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${selectedClip.properties.filters.grayscale
+                                        className={`py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${currentFilters.grayscale
                                             ? 'bg-surfaceHighlight border-accent/50 text-accent'
                                             : 'bg-white/5 border-white/5 text-textDim'
                                             }`}
@@ -361,7 +404,7 @@ export const PropertiesPanel = () => {
             {/* Modals */}
             <AnimatePresence>
                 {showTrimTool && selectedClip && (
-                    <TrimTool
+                    <KeyframeTrimTool
                         clipId={selectedClip.id}
                         duration={selectedClip.duration}
                         onClose={() => setShowTrimTool(false)}

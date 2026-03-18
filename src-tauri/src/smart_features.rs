@@ -180,6 +180,7 @@ fn analyze_and_recommend(
     fps: f32,
     duration: f64,
 ) -> (String, String, String, String) {
+    let _ = duration; // duration is currently unused but kept in API contract
     let pixel_count = width as f64 * height as f64;
     let bitrate_base = pixel_count * fps as f64 / 1_000_000.0;
 

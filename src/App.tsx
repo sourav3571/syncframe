@@ -1,207 +1,59 @@
-import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import { save as saveDialog, open } from '@tauri-apps/plugin-dialog';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, memo, Component, ReactNode } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { HardwareStatus } from "./components/HardwareStatus";
-import { Timeline } from "./components/Timeline/Timeline";
-import { MediaLibrary } from "./components/MediaLibrary";
-import { PropertiesPanel } from "./components/PropertiesPanel";
+import { Timeline as TimelineComponent } from "./components/Timeline/Timeline";
+import { MediaLibrary as MediaLibraryComponent } from "./components/MediaLibrary";
+import { PropertiesPanel as PropertiesPanelComponent } from "./components/PropertiesPanel";
+import { EnhancedClipRenderer } from "./components/EnhancedClipRenderer";
+
+// Error Boundary Component
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[ErrorBoundary] Caught error:', error);
+    (window as any).__syncframe_errors = (window as any).__syncframe_errors || [];
+    (window as any).__syncframe_errors.push(`CRITICAL: ${error.message}`);
+    window.dispatchEvent(new CustomEvent('syncframe-error'));
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-screen h-screen bg-background flex items-center justify-center flex-col gap-4">
+          <div className="text-red-500 text-2xl font-bold">⚠️ Application Error</div>
+          <div className="text-gray-400 max-w-md text-center">{this.state.error?.message}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-accent text-background rounded-lg font-bold"
+          >
+            Reload App
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Memoized components to prevent full app re-render on every frame
+const MemoizedTimeline = memo(TimelineComponent);
+const MemoizedMediaLibrary = memo(MediaLibraryComponent);
+const MemoizedPropertiesPanel = memo(PropertiesPanelComponent);
 import { SmartRender } from "./components/SmartRender";
 import { useTimelineStore } from "./store/useTimelineStore";
 import { Video, Share, Settings, Play, FastForward, Rewind, Maximize2, Layers, X } from "lucide-react";
 
-// Dedicated renderer for timeline clips to handle synchronization without lag
-const ClipRenderer = ({ clip, currentTime, isPlaying, isAudioOnly = false }: { clip: any, currentTime: number, isPlaying: boolean, isAudioOnly?: boolean }) => {
-  const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null);
-
-  // Robust source resolution
-  const resolveSource = (src: string) => {
-    if (!src) return "";
-    let finalSrc = src;
-    if (src.startsWith('http') || src.startsWith('asset:') || src.startsWith('data:')) {
-      finalSrc = src;
-    } else if (src.startsWith('/')) {
-      finalSrc = new URL(src, window.location.origin).href;
-    } else {
-      finalSrc = convertFileSrc(src);
-    }
-    
-    // Cache bust identical handles to prevent browser deadlock
-    // When multiple clips use the EXACT same source file simultaneously, Chromium deadlocks on the local byte stream.
-    // Appending a unique ID forces the browser to open separate stream buffered instances for each clip.
-    return `${finalSrc}${finalSrc.includes('?') ? '&' : '?'}instanceId=${clip.id}${isAudioOnly ? '_audio' : '_video'}`;
-  };
-
-  const source = resolveSource(clip.source || "");
-  const isActive = currentTime >= clip.start && currentTime < clip.start + clip.duration;
-
-  // Priming listener for global playback initialization
-  useEffect(() => {
-    const el = mediaRef.current;
-    if (!el) return;
-
-    const primeElement = () => {
-      el.load();
-      el.play().then(() => el.pause()).catch(() => { });
-    };
-
-    if ((window as any).__syncframe_primed) {
-      primeElement();
-    }
-
-    const handlePrime = () => primeElement();
-    window.addEventListener('prime-media', handlePrime);
-    return () => window.removeEventListener('prime-media', handlePrime);
-  }, []);
-
-  useEffect(() => {
-    const el = mediaRef.current;
-    if (!el) return;
-
-    // Sync time offset for all clips so overlapping clips stay aligned by relative timeline.
-    const clipMediaOffset = clip.mediaOffset || 0;
-    const speed = clip.properties?.speed || 1;
-    el.playbackRate = speed;
-    const expectedMediaTime = (currentTime - clip.start) * speed + clipMediaOffset;
-    const clampedMediaTime = Math.min(Math.max(expectedMediaTime, 0), clip.duration);
-
-    const drift = Math.abs(el.currentTime - clampedMediaTime);
-    
-    // When playing, use 0.4s to prevent constant stuttering ("stopping in between"). When scrubbing (paused), keep it tight.
-    const threshold = isPlaying ? 0.4 : 0.05;
-
-    let targetTimeSet = false;
-    if (drift > threshold) {
-      try {
-        el.currentTime = clampedMediaTime;
-        targetTimeSet = true;
-      } catch (e) {
-        // Ignore if element is not ready to set currentTime
-      }
-    }
-
-    if (isActive) {
-       if (isPlaying && el.paused) {
-           // Provide a slight debounce and only play if we are fairly close to our target time
-           if (!targetTimeSet || drift <= threshold) {
-              el.play().catch(e => {
-                  const msg = `Autoplay Blocked [${clip.name}]: ${e.message}`;
-                  console.warn(msg);
-                  (window as any).__syncframe_errors = (window as any).__syncframe_errors || [];
-                  if (!(window as any).__syncframe_errors.includes(msg)) {
-                    (window as any).__syncframe_errors.push(msg);
-                    window.dispatchEvent(new CustomEvent('syncframe-error'));
-                  }
-              });
-           }
-       } else if (!isPlaying && !el.paused) {
-           el.pause();
-       }
-    } else if (!el.paused) {
-        el.pause();
-    }
-  }, [currentTime, clip.start, clip.duration, clip.mediaOffset, clip.properties?.speed, isPlaying, isActive, clip.hasAudio, clip.format, clip.name]);
-
-  useEffect(() => {
-    const el = mediaRef.current;
-    if (!el) return;
-
-    let targetVolume = isActive ? ((clip.properties?.volume !== undefined ? clip.properties.volume : 100) / 100) : 0;
-
-    if (isActive) {
-      const elapsed = currentTime - clip.start;
-      const remaining = clip.duration - elapsed;
-      const fadeIn = clip.properties?.fadeIn || 0;
-      const fadeOut = clip.properties?.fadeOut || 0;
-
-      if (fadeIn > 0 && elapsed < fadeIn) {
-        targetVolume *= (elapsed / fadeIn);
-      } else if (fadeOut > 0 && remaining < fadeOut) {
-        targetVolume *= (remaining / fadeOut);
-      }
-    }
-
-    const finalVolume = (clip.format === 'audio' || clip.format === 'video') ? targetVolume : (isActive ? (clip.properties?.opacity || 100) / 100 : 0);
-    el.volume = Math.min(1, Math.max(0, finalVolume));
-  }, [clip.properties?.volume, clip.properties?.opacity, clip.properties?.fadeIn, clip.properties?.fadeOut, isActive, currentTime, clip.start, clip.duration, clip.format]);
-
-  const handleError = (e: any) => {
-    const errorMsg = `Media Error [${clip.name}]: ${e.target.error?.message || 'Unknown error'}`;
-    console.error(errorMsg);
-    (window as any).__syncframe_errors = (window as any).__syncframe_errors || [];
-    (window as any).__syncframe_errors.push(errorMsg);
-    window.dispatchEvent(new CustomEvent('syncframe-error'));
-  };
-
-  if (isAudioOnly) {
-    return (
-      <audio
-        ref={mediaRef as any}
-        src={source}
-        preload="auto"
-        muted={false}
-        onError={handleError}
-        style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0.01 }}
-      />
-    );
-  }
-
-  const properties = clip.properties;
-  let filterString = `blur(${properties.filters.blur}px) brightness(${properties.filters.brightness}%) contrast(${properties.filters.contrast}%) ${properties.filters.sepia ? 'sepia(1)' : ''} ${properties.filters.grayscale ? 'grayscale(1)' : ''}`;
-  if (properties.filters.custom && properties.filters.custom !== 'none') filterString += ` ${properties.filters.custom}`;
-  if (properties.adjustments) {
-    const adj = properties.adjustments;
-    filterString += ` saturate(${adj.saturation}%) brightness(${100 + adj.exposure}%) hue-rotate(${adj.tint}deg)`;
-  }
-
-  if (clip.format === 'text') {
-    return (
-      <div
-        style={{
-          fontFamily: properties.textStyle?.font || 'Inter',
-          color: properties.textStyle?.color || 'white',
-          textShadow: properties.textStyle?.shadow || 'none',
-          animation: properties.textStyle?.animation !== 'none' ? `${properties.textStyle?.animation} 2s infinite` : 'none'
-        }}
-        className="text-4xl font-black text-center"
-      >
-        {clip.textContent}
-      </div>
-    );
-  }
-
-  if (clip.format === 'sticker') {
-    return <div className="text-8xl drop-shadow-2xl">{clip.stickerId}</div>;
-  }
-
-  if (clip.format === 'image') {
-    return <img src={source} className="w-full h-full object-cover shadow-2xl" alt={clip.name} />;
-  }
-
-  if (clip.format === 'filter' || clip.format === 'adjustment') {
-    return (
-      <div
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ backdropFilter: filterString }}
-      />
-    );
-  }
-
-  return (
-    <video
-      ref={mediaRef as any}
-      src={source}
-      className="w-full h-full object-contain"
-      playsInline
-      muted
-      preload="auto"
-      onError={handleError}
-      style={{ filter: clip.format === 'video' ? filterString : 'none', transformOrigin: 'center center' }}
-    />
-  );
-};
-
-// Isolated Visual Renderer to prevent full-app re-renders at 60fps
 const VisualRenderer = () => {
   const clips = useTimelineStore(s => s.clips);
   const currentTime = useTimelineStore(s => s.currentTime);
@@ -210,13 +62,16 @@ const VisualRenderer = () => {
   const selectedClip = clips.find(c => c.id === selectedClipId);
 
   return (
-    <AnimatePresence mode="popLayout">
+    <AnimatePresence>
       {(() => {
         return clips
           .filter(c => c.format !== 'audio')
           .sort((a, b) => a.trackId - b.trackId)
           .map((clip) => {
             const isActive = currentTime >= clip.start && currentTime < clip.start + clip.duration;
+            // Only render if active or selected
+            if (!isActive && selectedClipId !== clip.id) return null;
+
             const effectiveOpacity = isActive ? ((clip.properties.opacity || 100) / 100) : 0;
             return (
               <motion.div
@@ -231,14 +86,23 @@ const VisualRenderer = () => {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0, type: 'tween' }}
                 className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
-                style={{ zIndex: clip.trackId === 1 ? 100 : clip.trackId === 2 ? 90 : clip.trackId === 3 ? 80 : 70, display: effectiveOpacity > 0 ? 'flex' : 'none', mixBlendMode: 'normal' }}
+                style={{
+                  zIndex: clip.trackId * 10,
+                  display: 'flex',
+                  mixBlendMode: 'normal'
+                }}
               >
-              <div className="w-full h-full overflow-hidden flex items-center justify-center">
-                <ClipRenderer clip={clip} currentTime={currentTime} isPlaying={isPlaying} />
-              </div>
-            </motion.div>
-          );
-        });
+                <div className="w-full h-full overflow-hidden" key={`renderer-${clip.id}`}>
+                  <EnhancedClipRenderer
+                    clip={clip}
+                    isPlaying={isPlaying}
+                    currentTime={currentTime}
+                    muted={true} // Always mute preview videos to bypass browser limits
+                  />
+                </div>
+              </motion.div>
+            );
+          });
       })()}
 
       {(() => {
@@ -283,28 +147,28 @@ const VisualRenderer = () => {
   );
 };
 
-// Isolated Audio Engine to prevent full-app re-renders at 60fps
+// Improved Audio Engine for multi-track synchronization
 const AudioEngine = () => {
   const clips = useTimelineStore(s => s.clips);
-  const currentTime = useTimelineStore(s => s.currentTime);
   const isPlaying = useTimelineStore(s => s.isPlaying);
+  const currentTime = useTimelineStore(s => s.currentTime);
 
   return (
     <div
       style={{ position: 'fixed', bottom: 0, right: 0, width: 1, height: 1, opacity: 0.01, zIndex: -100, pointerEvents: 'none' }}
       className="overflow-hidden"
     >
-      <audio
-        autoPlay
-        loop
-        muted={false}
-        src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA== "
-        onPlay={() => console.info("[SystemEngine] Heartbeat started")}
-      />
+      {/* Unified Audio Engine: Video audio + Dedicated audio tracks */}
       {clips
         .filter(c => c.format === 'audio' || (c.format === 'video' && c.hasAudio !== false))
         .map(clip => (
-          <ClipRenderer key={`audio-${clip.id}`} clip={clip} currentTime={currentTime} isPlaying={isPlaying} isAudioOnly />
+          <EnhancedClipRenderer
+            key={`audio-${clip.id}`}
+            clip={clip}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            isAudioOnly
+          />
         ))
       }
     </div>
@@ -316,16 +180,14 @@ const AudioEngine = () => {
 
 function App() {
   const isPlaying = useTimelineStore(s => s.isPlaying);
-  const currentTime = useTimelineStore(s => s.currentTime);
-  const setCurrentTime = useTimelineStore(s => s.setCurrentTime);
-  const clips = useTimelineStore(s => s.clips);
   const setIsPlaying = useTimelineStore(s => s.setIsPlaying);
   const initializeTracks = useTimelineStore(s => s.initializeTracks);
 
   const jumpSeconds = (delta: number) => {
-    const totalDuration = clips.length > 0 ? Math.max(...clips.map((c) => c.start + c.duration)) : 0;
-    const nextTime = Math.max(0, Math.min(totalDuration, currentTime + delta));
-    setCurrentTime(nextTime);
+    const state = useTimelineStore.getState();
+    const totalDuration = state.clips.length > 0 ? Math.max(...state.clips.map((c) => c.start + c.duration)) : 0;
+    const nextTime = Math.max(0, Math.min(totalDuration, state.currentTime + delta));
+    state.setCurrentTime(nextTime);
   };
 
   const [errorLog, setErrorLog] = useState<string[]>([]);
@@ -398,9 +260,13 @@ function App() {
 
   useEffect(() => {
     // Keep local reference in sync with manual seeking updates while paused.
-    if (!isPlaying) {
-      currentPlaybackTimeRef.current = currentTime;
-    }
+    const unsubscribe = useTimelineStore.subscribe(
+      (state) => {
+        if (!state.isPlaying) {
+          currentPlaybackTimeRef.current = state.currentTime;
+        }
+      }
+    );
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDraggingRef.current) return;
@@ -431,22 +297,48 @@ function App() {
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     return () => {
+      unsubscribe();
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isTimelineCollapsed]);
 
   const animate = (time: number) => {
-    if (lastTimeRef.current !== null) {
-      const deltaTime = (time - lastTimeRef.current) / 1000;
-      currentPlaybackTimeRef.current += deltaTime;
+    try {
+      if (lastTimeRef.current !== null) {
+        let deltaTime = (time - lastTimeRef.current) / 1000;
+        // Avoid backward drift if the browser gives non-monotonic timestamps.
+        if (deltaTime < 0) deltaTime = 0;
+        // Cap delta to avoid big jumps on tab/CPU delays.
+        deltaTime = Math.min(deltaTime, 0.05);
 
-      // Avoid writing to the state every frame with tiny changes when not necessary.
-      // This smooths slow motion / jitter when frames skip on heavy rendering.
-      useTimelineStore.getState().setCurrentTime(currentPlaybackTimeRef.current);
+        const clips = useTimelineStore.getState().clips;
+        const timelineEnd = clips.length > 0 ? Math.max(...clips.map((c) => c.start + c.duration)) : 10;
+
+        // Smooth playback: increment time but don't clamp to prevent stuttering
+        currentPlaybackTimeRef.current += deltaTime;
+        
+        // Only pause when reaching the actual end (not during looping)
+        if (currentPlaybackTimeRef.current >= timelineEnd) {
+          currentPlaybackTimeRef.current = timelineEnd;
+        }
+        
+        // Keep within bounds but don't force clamping during playback
+        currentPlaybackTimeRef.current = Math.max(0, currentPlaybackTimeRef.current);
+
+        useTimelineStore.getState().setCurrentTime(currentPlaybackTimeRef.current);
+      }
+
+      lastTimeRef.current = time;
+      requestRef.current = requestAnimationFrame(animate);
+    } catch (err) {
+      console.error('[animate] Error in animation frame:', err);
+      (window as any).__syncframe_errors = (window as any).__syncframe_errors || [];
+      (window as any).__syncframe_errors.push(`Animation error: ${err}`);
+      window.dispatchEvent(new CustomEvent('syncframe-error'));
+      lastTimeRef.current = time;
+      requestRef.current = requestAnimationFrame(animate);
     }
-    lastTimeRef.current = time;
-    requestRef.current = requestAnimationFrame(animate);
   };
 
   useEffect(() => {
@@ -457,8 +349,6 @@ function App() {
       requestRef.current = requestAnimationFrame(animate);
     } else {
       if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
-      // keep local time in sync when paused
-      currentPlaybackTimeRef.current = useTimelineStore.getState().currentTime;
     }
     return () => {
       if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
@@ -782,7 +672,7 @@ function App() {
 
       <main className="flex-1 flex overflow-hidden text-white">
         <div style={{ width: leftPanelWidth }} className="relative shrink-0">
-          <MediaLibrary />
+          <MemoizedMediaLibrary />
           <div
             className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize z-50 hover:bg-accent/50 transition-colors"
             onMouseDown={() => {
@@ -869,12 +759,12 @@ function App() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-textDim"><path d="m6 9 6 6 6-6" /></svg>
               </div>
             </button>
-            <Timeline />
+            <MemoizedTimeline />
           </motion.div>
         </section>
 
         <div style={{ width: rightPanelWidth }} className="relative shrink-0">
-          <PropertiesPanel />
+          <MemoizedPropertiesPanel />
           <div
             className="absolute top-0 left-0 w-1.5 h-full cursor-col-resize z-50 hover:bg-accent/50 transition-colors"
             onMouseDown={() => {
@@ -888,4 +778,10 @@ function App() {
   );
 }
 
-export default App;
+export default function AppWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}

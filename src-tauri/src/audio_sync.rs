@@ -1,6 +1,7 @@
 use serde::{Serialize, Deserialize};
 use std::process::Command;
 
+#[allow(dead_code)]
 #[derive(Serialize, Deserialize)]
 pub struct SyncResult {
     pub offset_seconds: f64,
@@ -278,6 +279,7 @@ fn calculate_audio_confidence(
     target_data: &[u8],
     offset: f64,
 ) -> Result<f32, String> {
+    let _ = offset; // currently unused, preserve API compatibility
     let ref_energy = calculate_audio_energy(ref_data);
     let target_energy = calculate_audio_energy(target_data);
 
