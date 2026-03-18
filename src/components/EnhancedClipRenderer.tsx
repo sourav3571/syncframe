@@ -69,7 +69,10 @@ export const EnhancedClipRenderer = ({
       // Time since clip started on timeline
       const elapsedTimeInClip = (currentTime - clip.start) * speed;
       const expectedMediaTime = Math.max(0, elapsedTimeInClip + mediaOffset);
-      const clampedMediaTime = Math.min(expectedMediaTime, clip.duration);
+      
+      // Get the actual media duration (fallback to Infinity if not yet loaded)
+      const mediaDuration = el.duration && !isNaN(el.duration) ? el.duration : Infinity;
+      const clampedMediaTime = Math.min(expectedMediaTime, mediaDuration);
 
       // 1. Set playback rate FIRST (before seeking)
       if (el.playbackRate !== speed) {
@@ -98,9 +101,9 @@ export const EnhancedClipRenderer = ({
         // Hard sync for large jumps (>150ms)
         el.currentTime = clampedMediaTime;
         el.playbackRate = speed;
-      } else if (absDrift > 0.008) {
-        // 90fps frame is ~11.1ms. We catch drifts above 8ms.
+      } else if (absDrift > 0.04) {
         // Soft sync: Adjust playback speed slightly (+/- 5%) to align over time
+        // 40ms tolerance prevents micro-stuttering from browser audio buffer timing anomalies
         const adjustment = drift > 0 ? 0.95 : 1.05;
         if (el.playbackRate !== speed * adjustment) {
           el.playbackRate = speed * adjustment;
