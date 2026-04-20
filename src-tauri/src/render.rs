@@ -1,4 +1,5 @@
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_shell::ShellExt;
 use std::process::Command;
 use serde::Serialize;
 
@@ -178,25 +179,15 @@ pub async fn start_render(app: AppHandle, output_path: String, encoder: String, 
     tokio::spawn(async move {
         app.emit("render-progress", RenderProgress { percentage: 0.0, status: "Starting Media Engine...".into() }).ok();
 
-        let possible_paths = vec![
-            "src-tauri/bin/ffmpeg.exe",
-            "bin/ffmpeg.exe",
-            "../src-tauri/bin/ffmpeg.exe",
-        ];
-
-        let mut cmd = "ffmpeg".to_string();
-        for p in possible_paths {
-            if let Ok(path) = std::env::current_dir().map(|d| d.join(p)) {
-                 if path.exists() {
-                     cmd = path.to_string_lossy().to_string();
-                     break;
-                 }
+        let sidecar_command = match app.shell().sidecar("ffmpeg") {
+            Ok(cmd) => cmd.args(&args),
+            Err(e) => {
+                app.emit("render-progress", RenderProgress { percentage: 0.0, status: format!("Sidecar Error: {}", e) }).ok();
+                return;
             }
-        }
+        };
 
-        let output = Command::new(cmd)
-            .args(&args)
-            .output();
+        let output = sidecar_command.output();
 
         match output {
             Ok(o) if o.status.success() => {
@@ -216,7 +207,7 @@ pub async fn start_render(app: AppHandle, output_path: String, encoder: String, 
 }
 
 #[tauri::command]
-pub async fn generate_proxy(input: String, output: String) -> Result<(), String> {
+pub async fn generate_proxy(app: AppHandle, input: String, output: String) -> Result<(), String> {
     println!("Generating proxy for {} -> {}", input, output);
     let mut args = Vec::new();
     args.push("-i".to_string());
@@ -232,25 +223,11 @@ pub async fn generate_proxy(input: String, output: String) -> Result<(), String>
     args.push("-y".to_string());
     args.push(output);
 
-    let mut cmd = "ffmpeg".to_string();
-    let possible_paths = vec![
-        "src-tauri/bin/ffmpeg.exe",
-        "bin/ffmpeg.exe",
-        "../src-tauri/bin/ffmpeg.exe",
-    ];
+    let sidecar_command = app.shell().sidecar("ffmpeg")
+        .map_err(|e| format!("Failed to find ffmpeg sidecar: {}", e))?
+        .args(&args);
 
-    for p in possible_paths {
-        if let Ok(path) = std::env::current_dir().map(|d| d.join(p)) {
-             if path.exists() {
-                 cmd = path.to_string_lossy().to_string();
-                 break;
-             }
-        }
-    }
-
-    let output_res = Command::new(cmd)
-        .args(&args)
-        .output();
+    let output_res = sidecar_command.output();
 
     match output_res {
         Ok(o) if o.status.success() => Ok(()),

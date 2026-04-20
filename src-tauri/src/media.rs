@@ -1,6 +1,7 @@
 use serde::Serialize;
+use tauri::{AppHandle, command};
+use tauri_plugin_shell::ShellExt;
 use std::process::Command;
-use tauri::command;
 
 #[derive(Serialize)]
 pub struct MediaMetadata {
@@ -11,28 +12,14 @@ pub struct MediaMetadata {
 }
 
 #[command]
-pub async fn get_media_metadata(path: String) -> Result<MediaMetadata, String> {
+pub async fn get_media_metadata(app: AppHandle, path: String) -> Result<MediaMetadata, String> {
     println!("Backend: Metadata request for: {}", path);
     
-    let possible_paths = vec![
-        "src-tauri/bin/ffprobe.exe",
-        "bin/ffprobe.exe",
-        "../src-tauri/bin/ffprobe.exe",
-    ];
+    let sidecar_command = app.shell().sidecar("ffprobe")
+        .map_err(|e| format!("Failed to find ffprobe sidecar: {}", e))?
+        .args(&["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", &path]);
 
-    let mut cmd = "ffprobe".to_string();
-    for p in possible_paths {
-        if let Ok(path) = std::env::current_dir().map(|d| d.join(p)) {
-             if path.exists() {
-                 cmd = path.to_string_lossy().to_string();
-                 break;
-             }
-        }
-    }
-
-    let output = Command::new(&cmd)
-        .args(&["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", &path])
-        .output();
+    let output = sidecar_command.output();
 
     match output {
         Ok(o) if o.status.success() => {
@@ -47,7 +34,7 @@ pub async fn get_media_metadata(path: String) -> Result<MediaMetadata, String> {
                 duration,
                 format: if is_image { "image" } else if is_audio { "audio" } else { "video" }.to_string(), 
                 resolution: if is_audio { "N/A" } else { "1920x1080" }.to_string(),
-                has_audio: is_audio || check_has_audio(&cmd, &path),
+                has_audio: is_audio || check_has_audio(&app, &path),
             })
         },
         _ => {
@@ -66,8 +53,13 @@ pub async fn get_media_metadata(path: String) -> Result<MediaMetadata, String> {
     }
 }
 
-fn check_has_audio(cmd: &str, path: &str) -> bool {
-    let output = Command::new(cmd)
+fn check_has_audio(app: &AppHandle, path: &str) -> bool {
+    let sidecar_command = match app.shell().sidecar("ffprobe") {
+        Ok(cmd) => cmd,
+        Err(_) => return false,
+    };
+
+    let output = sidecar_command
         .args(&["-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "default=noprint_wrappers=1:nokey=1", path])
         .output();
         

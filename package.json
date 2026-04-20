@@ -2,6 +2,10 @@
   "name": "tauri-appsyncframe",
   "private": true,
   "version": "0.1.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

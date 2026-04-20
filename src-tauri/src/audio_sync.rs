@@ -1,4 +1,6 @@
 use serde::{Serialize, Deserialize};
+use tauri::{AppHandle, command};
+use tauri_plugin_shell::ShellExt;
 use std::process::Command;
 
 #[allow(dead_code)]
@@ -17,6 +19,7 @@ pub struct SyncInfo {
 
 #[tauri::command]
 pub async fn auto_align_clips(
+    app: AppHandle,
     paths: Vec<String>,
     method: Option<String>
 ) -> Result<Vec<SyncInfo>, String> {
@@ -27,13 +30,13 @@ pub async fn auto_align_clips(
     }
 
     match sync_method {
-        "audio" => sync_by_audio(&paths).await,
-        "visual" => sync_by_visual(&paths).await,
+        "audio" => sync_by_audio(&app, &paths).await,
+        "visual" => sync_by_visual(&app, &paths).await,
         _ => sync_by_manual(&paths).await,
     }
 }
 
-async fn sync_by_audio(paths: &[String]) -> Result<Vec<SyncInfo>, String> {
+async fn sync_by_audio(app: &AppHandle, paths: &[String]) -> Result<Vec<SyncInfo>, String> {
     let reference_path = &paths[0];
     let mut results = vec![
         SyncInfo {
@@ -44,7 +47,7 @@ async fn sync_by_audio(paths: &[String]) -> Result<Vec<SyncInfo>, String> {
     ];
 
     for (idx, path) in paths.iter().enumerate().skip(1) {
-        match extract_audio_fingerprint(reference_path, path).await {
+        match extract_audio_fingerprint(app, reference_path, path).await {
             Ok((offset, confidence)) => {
                 results.push(SyncInfo {
                     clip_index: idx,
@@ -65,7 +68,7 @@ async fn sync_by_audio(paths: &[String]) -> Result<Vec<SyncInfo>, String> {
     Ok(results)
 }
 
-async fn sync_by_visual(paths: &[String]) -> Result<Vec<SyncInfo>, String> {
+async fn sync_by_visual(app: &AppHandle, paths: &[String]) -> Result<Vec<SyncInfo>, String> {
     let reference_path = &paths[0];
     let mut results = vec![
         SyncInfo {
@@ -76,7 +79,7 @@ async fn sync_by_visual(paths: &[String]) -> Result<Vec<SyncInfo>, String> {
     ];
 
     for (idx, path) in paths.iter().enumerate().skip(1) {
-        match detect_scene_keyframes(reference_path, path).await {
+        match detect_scene_keyframes(app, reference_path, path).await {
             Ok((offset, confidence)) => {
                 results.push(SyncInfo {
                     clip_index: idx,
@@ -102,22 +105,27 @@ async fn sync_by_manual(_paths: &[String]) -> Result<Vec<SyncInfo>, String> {
 }
 
 async fn extract_audio_fingerprint(
+    app: &AppHandle,
     reference: &str,
     target: &str,
 ) -> Result<(f64, f32), String> {
     // Extract audio and create fingerprint using FFmpeg
-    let ref_audio = Command::new("ffmpeg")
-        .args(&["-i", reference, "-f", "f32le", "-"])
-        .output()
+    let sidecar_ref = app.shell().sidecar("ffmpeg")
+        .map_err(|e| format!("Failed to find ffmpeg sidecar: {}", e))?
+        .args(&["-i", reference, "-f", "f32le", "-"]);
+
+    let ref_audio = sidecar_ref.output()
         .map_err(|e| format!("Failed to extract reference audio: {}", e))?;
 
     if !ref_audio.status.success() {
         return Err("Failed to extract reference audio".to_string());
     }
 
-    let target_audio = Command::new("ffmpeg")
-        .args(&["-i", target, "-f", "f32le", "-"])
-        .output()
+    let sidecar_target = app.shell().sidecar("ffmpeg")
+        .map_err(|e| format!("Failed to find ffmpeg sidecar: {}", e))?
+        .args(&["-i", target, "-f", "f32le", "-"]);
+
+    let target_audio = sidecar_target.output()
         .map_err(|e| format!("Failed to extract target audio: {}", e))?;
 
     if !target_audio.status.success() {
@@ -132,32 +140,37 @@ async fn extract_audio_fingerprint(
 }
 
 async fn detect_scene_keyframes(
+    app: &AppHandle,
     reference: &str,
     target: &str,
 ) -> Result<(f64, f32), String> {
     // Extract keyframes using scene detection
-    let ref_scenes = Command::new("ffmpeg")
+    let sidecar_ref = app.shell().sidecar("ffmpeg")
+        .map_err(|e| format!("Failed to find ffmpeg sidecar: {}", e))?
         .args(&[
             "-i", reference,
             "-vf", "fps=1,scale=320:180",
             "-f", "image2pipe",
             "-",
-        ])
-        .output()
+        ]);
+
+    let ref_scenes = sidecar_ref.output()
         .map_err(|e| format!("Failed to extract reference frames: {}", e))?;
 
     if !ref_scenes.status.success() {
         return Err("Failed to extract reference frames".to_string());
     }
 
-    let target_scenes = Command::new("ffmpeg")
+    let sidecar_target = app.shell().sidecar("ffmpeg")
+        .map_err(|e| format!("Failed to find ffmpeg sidecar: {}", e))?
         .args(&[
             "-i", target,
             "-vf", "fps=1,scale=320:180",
             "-f", "image2pipe",
             "-",
-        ])
-        .output()
+        ]);
+
+    let target_scenes = sidecar_target.output()
         .map_err(|e| format!("Failed to extract target frames: {}", e))?;
 
     if !target_scenes.status.success() {

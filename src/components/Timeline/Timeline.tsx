@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useTimelineStore } from '../../store/useTimelineStore';
-import { Scissors, MousePointer2, ZoomIn, ZoomOut, Clock, Trash2, Eye, Volume2, Music, ArrowLeftRight } from 'lucide-react';
+import { Scissors, MousePointer2, ZoomIn, ZoomOut, Clock, Trash2, Eye, Volume2, Music } from 'lucide-react';
 
 // Sub-component for the live time display to isolate re-renders
 const TimeDisplay = () => {
@@ -64,65 +64,6 @@ export const Timeline = () => {
     const [mode, setMode] = React.useState<'select' | 'split'>('select');
     const [isLineDragging, setIsLineDragging] = React.useState(false);
     const [isAutoScrollEnabled, setIsAutoScrollEnabled] = React.useState(true);
-
-    const [draggingClipId, setDraggingClipId] = React.useState<string | null>(null);
-    const [dragType, setDragType] = React.useState<'move' | 'trim-left' | 'trim-right' | null>(null);
-    const [dragStartX, setDragStartX] = React.useState(0);
-    const [initialClipData, setInitialClipData] = React.useState<{start: number, duration: number, mediaOffset: number} | null>(null);
-
-    React.useEffect(() => {
-        if (!draggingClipId || !dragType || !initialClipData) return;
-
-        const onMouseMove = (e: MouseEvent) => {
-            const dx = e.clientX - dragStartX;
-            const timeOffset = dx / zoom;
-
-            if (dragType === 'move') {
-                const newStart = Math.max(0, initialClipData.start + timeOffset);
-                updateClip(draggingClipId, { start: newStart });
-            } else if (dragType === 'trim-left') {
-                const newStart = Math.max(0, initialClipData.start + timeOffset);
-                const timeDiff = newStart - initialClipData.start;
-                const newMediaOffset = initialClipData.mediaOffset + timeDiff;
-                
-                if (newMediaOffset < 0) return;
-                
-                const newDuration = Math.max(0.5, initialClipData.duration - timeDiff);
-                updateClip(draggingClipId, {
-                    start: newStart,
-                    duration: newDuration,
-                    mediaOffset: newMediaOffset
-                });
-            } else if (dragType === 'trim-right') {
-                let newDuration = Math.max(0.5, initialClipData.duration + timeOffset);
-                
-                const clip = clips.find(c => c.id === draggingClipId);
-                if (clip) {
-                    const sourceMedia = mediaLibrary.find(m => m.source === clip.source);
-                    if (sourceMedia) {
-                        const maxDuration = sourceMedia.duration - (clip.mediaOffset || 0);
-                        if (newDuration > maxDuration) {
-                            newDuration = maxDuration;
-                        }
-                    }
-                }
-                updateClip(draggingClipId, { duration: newDuration });
-            }
-        };
-
-        const onMouseUp = () => {
-            setDraggingClipId(null);
-            setDragType(null);
-            setInitialClipData(null);
-        };
-
-        window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
-        return () => {
-            window.removeEventListener('mousemove', onMouseMove);
-            window.removeEventListener('mouseup', onMouseUp);
-        };
-    }, [draggingClipId, dragType, dragStartX, initialClipData, zoom, updateClip, clips, mediaLibrary]);
 
     React.useEffect(() => {
         if (!isLineDragging || !timelineRef.current) return;
@@ -296,16 +237,11 @@ export const Timeline = () => {
                                             left: clip.start * zoom,
                                             width: Math.max(20, clip.duration * zoom)
                                         }}
-                                        onMouseDown={(e) => {
-                                            if (mode !== 'select') return;
-                                            setDraggingClipId(clip.id);
-                                            setDragType('move');
-                                            setDragStartX(e.clientX);
-                                            setInitialClipData({
-                                                start: clip.start,
-                                                duration: clip.duration,
-                                                mediaOffset: clip.mediaOffset || 0
-                                            });
+                                        drag="x"
+                                        dragMomentum={false}
+                                        onDragEnd={(_, info) => {
+                                            const newStart = Math.max(0, clip.start + info.offset.x / zoom);
+                                            updateClip(clip.id, { start: newStart });
                                         }}
                                     >
                                         <div className="flex items-center justify-between mb-1 translate-y-1">
@@ -324,40 +260,57 @@ export const Timeline = () => {
                                                 />
                                             ))}
                                         </div>
-                                        <div
-                                            onMouseDown={(e) => {
+                                        <motion.div
+                                            drag="x"
+                                            dragMomentum={false}
+                                            onDragEnd={(e, info) => {
                                                 e.stopPropagation();
-                                                setDraggingClipId(clip.id);
-                                                setDragType('trim-left');
-                                                setDragStartX(e.clientX);
-                                                setInitialClipData({
-                                                    start: clip.start,
-                                                    duration: clip.duration,
-                                                    mediaOffset: clip.mediaOffset || 0
+                                                const offsetTime = info.offset.x / zoom;
+                                                const newStart = Math.max(0, clip.start + offsetTime);
+                                                const timeDiff = newStart - clip.start;
+                                                const currentMediaOffset = clip.mediaOffset || 0;
+                                                
+                                                // Prevent negative media offset (trimming before start of video)
+                                                if (currentMediaOffset + timeDiff < 0) return;
+                                                
+                                                // Prevent trimming beyond the end of the video from the left
+                                                const newDuration = Math.max(0.5, clip.duration - timeDiff);
+                                                
+                                                updateClip(clip.id, {
+                                                    start: newStart,
+                                                    duration: newDuration,
+                                                    mediaOffset: currentMediaOffset + timeDiff
                                                 });
                                             }}
-                                            className="absolute left-0 top-0 bottom-0 w-4 bg-black/40 hover:bg-black/80 cursor-ew-resize z-20 flex items-center justify-center border-r border-white/20 transition-colors"
+                                            className="absolute left-0 top-0 bottom-0 w-4 bg-black/20 hover:bg-white/40 cursor-ew-resize z-20 flex items-center justify-center border-r border-white/20"
                                             title="Trim Left Edge"
                                         >
-                                            <ArrowLeftRight size={10} strokeWidth={3} className="text-white drop-shadow-md" />
-                                        </div>
-                                        <div
-                                            onMouseDown={(e) => {
+                                            <div className="w-[2px] h-4 bg-white/60 rounded-full shrink-0" />
+                                        </motion.div>
+                                        <motion.div
+                                            drag="x"
+                                            dragMomentum={false}
+                                            onDragEnd={(e, info) => {
                                                 e.stopPropagation();
-                                                setDraggingClipId(clip.id);
-                                                setDragType('trim-right');
-                                                setDragStartX(e.clientX);
-                                                setInitialClipData({
-                                                    start: clip.start,
-                                                    duration: clip.duration,
-                                                    mediaOffset: clip.mediaOffset || 0
-                                                });
+                                                const newWidthPx = clip.duration * zoom + info.offset.x;
+                                                let newDuration = Math.max(0.5, newWidthPx / zoom);
+                                                
+                                                // Bound right edge by source media duration
+                                                const sourceMedia = mediaLibrary.find(m => m.source === clip.source);
+                                                if (sourceMedia) {
+                                                    const maxDuration = sourceMedia.duration - (clip.mediaOffset || 0);
+                                                    if (newDuration > maxDuration) {
+                                                        newDuration = maxDuration;
+                                                    }
+                                                }
+                                                
+                                                updateClip(clip.id, { duration: newDuration });
                                             }}
-                                            className="absolute right-0 top-0 bottom-0 w-4 bg-black/40 hover:bg-black/80 cursor-ew-resize z-20 flex items-center justify-center border-l border-white/20 transition-colors"
+                                            className="absolute right-0 top-0 bottom-0 w-4 bg-black/20 hover:bg-white/40 cursor-ew-resize z-20 flex items-center justify-center border-l border-white/20"
                                             title="Trim Right Edge"
                                         >
-                                            <ArrowLeftRight size={10} strokeWidth={3} className="text-white drop-shadow-md" />
-                                        </div>
+                                            <div className="w-[2px] h-4 bg-white/60 rounded-full shrink-0" />
+                                        </motion.div>
                                     </motion.div>
                                 ))}
                             </div>
